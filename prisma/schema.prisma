@@ -1,0 +1,439 @@
+// HUSSIO Lucky Spin — database schema
+// PostgreSQL + Prisma ORM 7 (driver adapter: @prisma/adapter-pg)
+// Money is stored as integer VND (no decimals).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum Channel {
+  SHOPIFY_WEB
+  FACEBOOK
+  STORE
+}
+
+enum LuckyCodeStatus {
+  PENDING // waiting for manual approval (COD MANUAL_APPROVAL mode)
+  ACTIVE
+  USED
+  CANCELLED
+  EXPIRED
+}
+
+enum CodEligibilityMode {
+  CONFIRMED_ORDER
+  PAID
+  MANUAL_APPROVAL
+}
+
+enum WinnerNameMode {
+  MASKED
+  FIRST_NAME
+  FULL_NAME_WITH_CONSENT
+}
+
+enum PrizeType {
+  VOUCHER
+  FREE_SHIPPING
+  PRODUCT_POOL
+}
+
+enum GiftCategory {
+  POLO
+  TSHIRT
+  SHIRT
+  JACKET
+  PANTS
+  OTHER
+}
+
+enum SpinStatus {
+  COMPLETED
+  VOID
+}
+
+enum WinnerStatus {
+  WON
+  CONFIRMED
+  FULFILLED
+  VOID
+}
+
+enum VoucherStatus {
+  ISSUED
+  REDEEMED
+  EXPIRED
+  VOID
+}
+
+enum VoucherSyncStatus {
+  PENDING // waiting to be created on Shopify
+  SYNCED // discount code exists on Shopify
+  FAILED // last attempt failed, admin can retry
+  SKIPPED // Shopify not configured (mock mode)
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum AdminRole {
+  ADMIN // full access
+  STAFF // generate/import codes, view winners
+}
+
+// ---------------------------------------------------------------------------
+// Campaign & prizes
+// ---------------------------------------------------------------------------
+
+model Campaign {
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  status            CampaignStatus @default(DRAFT)
+  /// Spinning window (customers can spin between startsAt and endsAt).
+  startsAt          DateTime?
+  endsAt            DateTime?
+  /// Last moment an order can be placed to earn a code (website auto-issue).
+  /// Defaults to endsAt; usually earlier so COD orders can still be delivered and spun.
+  ordersEndAt       DateTime?
+  minimumOrderValue Int            @default(1300000)
+  currency          String         @default("VND")
+  /// Lucky codes look like HUSSIO-BF26-A7K2M9.
+  codePrefix        String         @default("HUSSIO-BF26")
+
+  /// MVP: one eligible order = one code = one spin.
+  spinsPerOrder    Int     @default(1)
+  /// Future: 2.600.000đ = 2 spins. Kept disabled in MVP.
+  multiSpinEnabled Boolean @default(false)
+
+  /// Lucky codes expire N days after issue (capped by campaign end).
+  codeValidityDays   Int                @default(30)
+  codEligibilityMode CodEligibilityMode @default(CONFIRMED_ORDER)
+  winnerNameMode     WinnerNameMode     @default(MASKED)
+
+  voucherValidityDays                  Int     @default(30)
+  voucherCombinesWithOrderDiscounts    Boolean @default(false)
+  voucherCombinesWithProductDiscounts  Boolean @default(false)
+  voucherCombinesWithShippingDiscounts Boolean @default(false)
+
+  /// One rule per line, rendered as a list on the public page.
+  termsContent String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  luckyCodes      LuckyCode[]
+  prizes          Prize[]
+  giftPools       GiftPool[]
+  spins           Spin[]
+  vouchers        Voucher[]
+  winners         Winner[]
+  analyticsEvents AnalyticsEvent[]
+}
+
+model Prize {
+  id         String    @id @default(cuid())
+  campaignId String
+  campaign   Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  /// Full name shown in result modal / admin, e.g. "Voucher 100K", "Áo Polo HUSSIO".
+  name       String
+  /// Big text on the wheel segment, e.g. "100K", "POLO".
+  wheelLabel String
+  /// Small text on the wheel segment, e.g. "VOUCHER", "ÁO".
+  wheelCaption String?
+  type       PrizeType
+  /// Relative weight. Probability = weight / sum(weights of available prizes).
+  weight     Int       @default(0)
+
+  giftPoolId String?
+  giftPool   GiftPool? @relation(fields: [giftPoolId], references: [id], onDelete: SetNull)
+
+  voucherValue    Int?
+  voucherMinSpend Int?
+
+  /// Optional quota for this prize (null = unlimited).
+  stockLimit Int?
+  stockUsed  Int     @default(0)
+  active     Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spins   Spin[]
+  winners Winner[]
+
+  @@index([campaignId, active, sortOrder])
+}
+
+model GiftPool {
+  id                String       @id @default(cuid())
+  campaignId        String
+  campaign          Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name              String
+  category          GiftCategory
+  /// Denormalised counters, recalculated whenever items or allocations change.
+  quantityTotal     Int          @default(0)
+  quantityRemaining Int          @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items  GiftItem[]
+  prizes Prize[]
+
+  @@unique([campaignId, category])
+}
+
+model GiftItem {
+  id          String       @id @default(cuid())
+  giftPoolId  String
+  giftPool    GiftPool     @relation(fields: [giftPoolId], references: [id], onDelete: Cascade)
+  productName String
+  category    GiftCategory
+  size        String?
+  color       String?
+  sku         String?
+  /// Units still available to allocate.
+  quantity    Int          @default(0)
+  /// Unit cost (giá vốn) in VND.
+  cost        Int          @default(0)
+  active      Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spins Spin[]
+
+  @@index([giftPoolId, active, quantity])
+}
+
+// ---------------------------------------------------------------------------
+// Codes, spins, rewards
+// ---------------------------------------------------------------------------
+
+model LuckyCode {
+  id             String          @id @default(cuid())
+  code           String          @unique
+  campaignId     String
+  campaign       Campaign        @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  channel        Channel
+  /// Shopify order name (#1234), Facebook order id or store bill id.
+  orderReference String
+  customerName   String
+  customerCity   String?
+  /// HMAC-SHA256 of the normalised phone number. Raw phone is never stored.
+  phoneHash      String
+  /// Last 3 digits only, for CS verification in admin.
+  phoneHint      String?
+  orderValue     Int
+  status         LuckyCodeStatus @default(ACTIVE)
+  issuedAt       DateTime        @default(now())
+  expiresAt      DateTime?
+  usedAt         DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+
+  /// Brute-force protection: failed phone attempts and temporary lock.
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+
+  shopifyOrderId String?
+  /// "admin" | "csv" | "shopify_webhook"
+  source         String    @default("admin")
+  createdById    String?
+  createdBy      AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// One code can only ever have one spin (Spin.luckyCodeId is UNIQUE).
+  spin Spin?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One order = one code.
+  @@unique([campaignId, channel, orderReference])
+  @@index([campaignId, status])
+  @@index([channel, orderReference])
+}
+
+model Spin {
+  id           String     @id @default(cuid())
+  campaignId   String
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  /// UNIQUE: database-level guarantee against double spins.
+  luckyCodeId  String     @unique
+  luckyCode    LuckyCode  @relation(fields: [luckyCodeId], references: [id], onDelete: Restrict)
+  prizeId      String
+  prize        Prize      @relation(fields: [prizeId], references: [id], onDelete: Restrict)
+  giftItemId   String?
+  giftItem     GiftItem?  @relation(fields: [giftItemId], references: [id], onDelete: SetNull)
+  /// Index of the winning segment on the wheel at spin time.
+  segmentIndex Int
+  /// Secure random draw (crypto.randomInt) in [0, totalWeight).
+  randomValue  Int
+  totalWeight  Int
+  status       SpinStatus @default(COMPLETED)
+  createdAt    DateTime   @default(now())
+
+  voucher Voucher?
+  winner  Winner?
+
+  @@index([campaignId, createdAt])
+}
+
+model Voucher {
+  id                String            @id @default(cuid())
+  campaignId        String
+  campaign          Campaign          @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  spinId            String            @unique
+  spin              Spin              @relation(fields: [spinId], references: [id], onDelete: Restrict)
+  code              String            @unique
+  type              PrizeType
+  /// Discount amount in VND (0 for free shipping).
+  value             Int
+  minimumSpend      Int?
+  status            VoucherStatus     @default(ISSUED)
+  syncStatus        VoucherSyncStatus @default(PENDING)
+  shopifyDiscountId String?
+  syncError         String?
+  syncedAt          DateTime?
+  expiresAt         DateTime
+  redeemedAt        DateTime?
+  redeemedOrderRef  String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([campaignId, status])
+}
+
+model Winner {
+  id         String       @id @default(cuid())
+  campaignId String
+  campaign   Campaign     @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  spinId     String       @unique
+  spin       Spin         @relation(fields: [spinId], references: [id], onDelete: Restrict)
+  prizeId    String
+  prize      Prize        @relation(fields: [prizeId], references: [id], onDelete: Restrict)
+  status     WinnerStatus @default(WON)
+  /// City shown in the public feed (no address).
+  city       String?
+  /// Customer agreed to show full name (only used in FULL_NAME_WITH_CONSENT mode).
+  consentFullName     Boolean   @default(false)
+  sizePreference      String?
+  customerNote        String?
+  customerConfirmedAt DateTime?
+  adminNote           String?
+  confirmedAt         DateTime?
+  fulfilledAt         DateTime?
+  voidedAt            DateTime?
+  voidReason          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([campaignId, status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Integrations, admin, analytics
+// ---------------------------------------------------------------------------
+
+model WebhookEvent {
+  id         String        @id @default(cuid())
+  /// X-Shopify-Webhook-Id — UNIQUE for idempotency.
+  webhookId  String        @unique
+  topic      String
+  shopDomain String?
+  orderId    String?
+  status     WebhookStatus @default(RECEIVED)
+  note       String?
+  attempts   Int           @default(1)
+  receivedAt DateTime      @default(now())
+  processedAt DateTime?
+
+  @@index([topic, receivedAt])
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         AdminRole @default(STAFF)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions   AdminSession[]
+  auditLogs  AdminAuditLog[]
+  luckyCodes LuckyCode[]
+}
+
+model AdminSession {
+  id          String    @id @default(cuid())
+  /// SHA-256 of the random session token kept in the httpOnly cookie.
+  tokenHash   String    @unique
+  adminUserId String
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([adminUserId])
+}
+
+model AdminAuditLog {
+  id          String     @id @default(cuid())
+  adminUserId String?
+  adminUser   AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  details     Json?
+  createdAt   DateTime   @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+model AnalyticsEvent {
+  id          String    @id @default(cuid())
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  /// code_issued | code_validated | spin_started | spin_completed | prize_won | voucher_copied | shop_now_clicked
+  name        String
+  channel     Channel?
+  prizeId     String?
+  luckyCodeId String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([campaignId, name, createdAt])
+  @@index([name, createdAt])
+}
+
+model RateLimitBucket {
+  /// e.g. "validate:ip:<hash>"
+  key         String   @id
+  count       Int
+  windowStart DateTime
+}

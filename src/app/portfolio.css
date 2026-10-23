@@ -1,0 +1,81 @@
+/* Airy portfolio composition with a large interactive object on the left. */
+.public-theme { position: relative; isolation: isolate; overflow: clip; --pointer-x: 0px; --pointer-y: 0px; }
+.public-theme[data-theme="light"] { background: #fefefe; --theme-navy-dark: #f7f7f9; --theme-navy: #fff; }
+.ambient-scene { position: absolute; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; opacity: .65; }
+.ambient-ribbon { position: absolute; border-radius: 46%; width: 1050px; height: 500px; border: 32px solid transparent; background: linear-gradient(var(--theme-navy-dark),var(--theme-navy-dark)) padding-box, conic-gradient(from 10deg,#ff92bf,#dac6ff,#c7fff0,#f4ff9d,#ff92bf) border-box; filter: blur(18px); transform: translate3d(var(--pointer-x),var(--pointer-y),0) rotate(-32deg); animation: ribbon-drift 22s ease-in-out infinite alternate; }
+.ribbon-one { top: -420px; left: -360px; }
+.ribbon-two { top: 40px; right: -820px; width: 1200px; height: 650px; animation-delay: -11s; }
+.ambient-orb { position: absolute; top: 600px; left: -200px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle,#e8ccff66,transparent 65%); transform: translate3d(calc(var(--pointer-x) * -2),var(--pointer-y),0); }
+[data-theme="dark"] .ambient-scene { opacity: .16; }
+.brand-watermark { position: absolute; top: 650px; left: 2%; width: 96%; text-align: center; font-size: clamp(100px,22vw,360px); font-weight: 800; letter-spacing: -.06em; line-height: 1; color: var(--theme-ivory); opacity: .035; pointer-events: none; z-index: -1; }
+.campaign-header { max-width: none; border: 0; padding: 24px 36px; }
+.campaign-header > span { border: 1px solid color-mix(in srgb,var(--theme-ivory) 12%,transparent); border-radius: 40px; padding: 12px 20px; font-size: 16px; background: color-mix(in srgb,var(--theme-navy) 65%,transparent); backdrop-filter: blur(12px); }
+.campaign-header button { border-radius: 30px; }
+.public-theme main { position: relative; }
+.campaign-heading { position: absolute; width: 34%; max-width: 460px; top: 40px; right: max(5%,calc((100vw - 1400px)/2)); padding: 0; text-align: center; }
+.campaign-kicker { justify-content: center; font-size: 9px; letter-spacing: .12em; }
+.campaign-title-row { display: block; margin-top: 16px; }
+.campaign-title-row h1 { font-size: clamp(42px,4.8vw,72px); letter-spacing: -.06em; line-height: 1.04; }
+.campaign-title-row h1 > span { display: inline; margin-left: .12em; }
+.campaign-offer { border: 0; padding: 0; margin-top: 18px; display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.campaign-offer strong { font-size: 23px; margin: 0 4px; }
+.campaign-offer p { font-size: 9px; letter-spacing: .05em; }
+.campaign-offer p:last-child { width: 100%; }
+.campaign-baseline { justify-content: center; gap: 20px; border: 0; margin-top: 12px; padding: 0; font-size: 8px; }
+.spin-stage { max-width: 1500px; padding-top: 20px; padding-bottom: 85px; }
+.spin-stage > .grid { grid-template-columns: minmax(0,1.65fr) minmax(0,1fr); gap: 5%; min-height: 700px; }
+.spin-stage > .grid > .order-2 { margin-top: 260px; width: 100%; max-width: 460px; justify-self: center; }
+.spin-stage .wheel-artwork { max-width: min(60vw,760px); filter: drop-shadow(0 24px 35px #00000018); }
+.code-entry-panel { border-radius: 28px; background: color-mix(in srgb,var(--theme-navy) 68%,transparent); border-color: color-mix(in srgb,var(--theme-ivory) 10%,transparent); backdrop-filter: blur(20px); box-shadow: 0 12px 50px #00000004; padding: 24px; }
+.code-entry-panel::before { display: none; }
+.code-entry-panel > p:first-child { font-size: 9px; letter-spacing: .15em; }
+.code-entry-panel h2 { font-size: 20px; margin-top: 12px; }
+.code-entry-panel > p { font-size: 12px; }
+.code-entry-panel input { border-radius: 30px; background: transparent; font-size: 12px; padding-left: 18px; }
+.code-entry-panel button { border-radius: 30px; font-size: 11px; }
+.campaign-info { gap: 16px; border: 0; padding-top: 0; }
+.campaign-info > div { border: 1px solid color-mix(in srgb,var(--theme-ivory) 10%,transparent); border-radius: 20px; padding: 24px; background: color-mix(in srgb,var(--theme-navy) 55%,transparent); backdrop-filter: blur(10px); }
+.campaign-bottom,.campaign-footer { border-color: color-mix(in srgb,var(--theme-ivory) 8%,transparent); }
+@keyframes ribbon-drift { from { transform: translate3d(var(--pointer-x),var(--pointer-y),0) rotate(-32deg) scale(1); } to { transform: translate3d(calc(var(--pointer-x) + 40px),calc(var(--pointer-y) + 20px),0) rotate(-24deg) scale(1.1); } }
+@media(max-width: 1023px) {
+ .campaign-heading { position: relative; width: auto; max-width: none; right: auto; top: auto; padding: 20px; }
+ .campaign-title-row h1 { font-size: 48px; }
+ .spin-stage > .grid { grid-template-columns: 1fr; min-height: 0; gap: 32px; }
+ .spin-stage > .grid > .order-2 { margin-top: 0; max-width: 500px; }
+ .spin-stage .wheel-artwork { max-width: min(85vw,650px); }
+ .campaign-info { grid-template-columns: 1fr; }
+ .brand-watermark { top: 500px; }
+}
+@media(max-width: 639px) {
+ .campaign-header { padding: 18px 20px; } .campaign-header > span { padding: 10px 14px; font-size: 13px; }
+ .campaign-title-row h1 { font-size: 40px; } .campaign-offer strong { font-size: 22px; }
+ .spin-stage { padding-bottom: 45px; } .code-entry-panel { padding: 24px; }
+ .ribbon-two { right: -1000px; } .campaign-info { gap: 12px; }
+}
+@media(prefers-reduced-motion: reduce) { .ambient-ribbon { animation: none; transform: rotate(-32deg); } .ambient-orb { transform: none; } }
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+ .spin-stage .wheel-artwork { transform: perspective(1500px) rotateY(var(--tilt-y, 0deg)) rotateX(var(--tilt-x, 0deg)); transition: transform .35s ease-out; }
+}
+
+/* HUSSIO uses Hanken Grotesk on its storefront. Local files match those weights. */
+@font-face { font-family: "Hussio Hanken"; src: url("/fonts/hanken-400.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Hussio Hanken"; src: url("/fonts/hanken-500.ttf") format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Hussio Hanken"; src: url("/fonts/hanken-600.ttf") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Hussio Hanken"; src: url("/fonts/hanken-700.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Hussio Hanken"; src: url("/fonts/hanken-800.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+.public-theme { font-family: "Hussio Hanken", Arial, sans-serif; --font-be-vietnam: "Hussio Hanken"; }
+.public-theme .header-logo { display: inline-flex; width: 150px; padding: 12px 0; }
+.header-logo img { width: 100%; height: auto; }
+[data-theme="dark"] .header-logo img { filter: brightness(0) invert(1); }
+.fluid-background { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 1; background: transparent; }
+.fluid-background canvas { display: block; width: 100%; height: 100%; }
+[data-theme="dark"] .fluid-background { opacity: .7; background: transparent; }
+.ambient-scene { display: none; }
+.brand-watermark { display: none; }
+.footer-wordmark { position: relative; display: block; width: 100%; overflow: hidden; text-align: center; font-size: clamp(100px,22vw,360px); font-weight: 800; letter-spacing: -.055em; line-height: 1.05; color: var(--theme-ivory); opacity: .045; margin: 10px auto 32px; pointer-events: none; }
+@media(max-width:639px) { .public-theme .header-logo { width: 115px; } .footer-wordmark { margin: 0 auto 24px; } }
+@media(prefers-reduced-motion:reduce) { .fluid-background { display: none; } }
+
+.footer-wordmark { color: #1c223c; opacity: .09; }

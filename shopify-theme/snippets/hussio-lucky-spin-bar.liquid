@@ -1,0 +1,27 @@
+{% comment %}
+  HUSSIO Lucky Spin — promotion bar (section 43 of the brief).
+  NOT installed automatically. To use: duplicate the live theme, add this file
+  to snippets/, then `{% render 'hussio-lucky-spin-bar' %}` at the top of
+  layout/theme.liquid (or inside the announcement-bar section) on the DUPLICATE.
+  Preview, then publish only after approval.
+{% endcomment %}
+<a href="https://quay.hussio-vn.com" class="hussio-ls-bar" target="_blank" rel="noopener">
+  <span class="hussio-ls-bar__desktop">🎁 ĐƠN TỪ 1.300.000Đ — NHẬN MÃ LUCKY SPIN — 100% CÓ QUÀ</span>
+  <span class="hussio-ls-bar__mobile">🎁 ĐƠN 1.3TR → NHẬN MÃ QUAY → 100% CÓ QUÀ</span>
+  <span class="hussio-ls-bar__cta">QUAY NGAY →</span>
+</a>
+<style>
+  .hussio-ls-bar {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    padding: 9px 16px; background: #0A1628; color: #F6F2E9; text-decoration: none;
+    font-size: 12px; font-weight: 600; letter-spacing: .12em; text-align: center;
+    border-bottom: 1px solid rgba(199,161,90,.35);
+  }
+  .hussio-ls-bar__cta { color: #E5C985; white-space: nowrap; }
+  .hussio-ls-bar__mobile { display: none; }
+  @media (max-width: 749px) {
+    .hussio-ls-bar { font-size: 11px; letter-spacing: .06em; }
+    .hussio-ls-bar__desktop { display: none; }
+    .hussio-ls-bar__mobile { display: inline; }
+  }
+</style>

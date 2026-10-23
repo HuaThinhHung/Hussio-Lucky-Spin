@@ -1,0 +1,28 @@
+{% comment %}
+  HUSSIO Lucky Spin — cart message (section 44 of the brief). Phase after MVP.
+  NOT installed automatically. Render inside the cart drawer / cart page of a
+  DUPLICATE theme: {% render 'hussio-lucky-spin-cart-message' %}
+
+  Threshold uses cart.items_subtotal_price: merchandise after line-item
+  discounts, without shipping — the same rule the backend applies.
+  Liquid money values are in the smallest unit ×100 → 1.300.000đ = 130000000.
+  Cart drawers that update via AJAX must re-render this snippet (section rendering API).
+{% endcomment %}
+{%- assign hussio_ls_threshold = 130000000 -%}
+{%- assign hussio_ls_subtotal = cart.items_subtotal_price -%}
+<div class="hussio-ls-cart" role="status">
+  {%- if hussio_ls_subtotal >= hussio_ls_threshold -%}
+    🎉 Bạn đã đủ điều kiện nhận 01 mã HUSSIO Lucky Spin sau khi hoàn tất đơn hàng.
+  {%- else -%}
+    {%- assign hussio_ls_remaining = hussio_ls_threshold | minus: hussio_ls_subtotal -%}
+    Bạn còn <strong>{{ hussio_ls_remaining | money }}</strong> để nhận 01 mã HUSSIO Lucky Spin 🎁
+  {%- endif -%}
+</div>
+<style>
+  .hussio-ls-cart {
+    margin: 12px 0; padding: 10px 14px; border-radius: 10px;
+    background: #F6F2E9; color: #142238; border: 1px solid #C7A15A;
+    font-size: 13px; line-height: 1.5;
+  }
+  .hussio-ls-cart strong { color: #8A6A2F; }
+</style>
