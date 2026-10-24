@@ -84,8 +84,8 @@ export default function LuckyWheel({
               <stop offset="100%" stopColor="#D92D32" />
             </linearGradient>
           </defs>
-          <path d="M22 52 L4 14 A20 20 0 1 1 40 14 Z" fill="url(#pointer-gold)" stroke="#111111" strokeWidth="2" />
-          <circle cx="22" cy="16" r="6" fill="#111111" />
+          <path d="M6 3 Q3 3 4 8 L22 49 L40 8 Q41 3 38 3 Z" fill="url(#pointer-gold)" stroke="#111111" strokeWidth="2" />
+          <circle cx="22" cy="14" r="6" fill="#111111" />
         </svg>
       </div>
 
@@ -124,7 +124,8 @@ export default function LuckyWheel({
             const center = segmentCenterAngle(index, count);
             return (
               <g key={segment.id}>
-                <path d={segmentPath(index, count)} fill={theme.fill} stroke="#555555" strokeOpacity={0.55} strokeWidth={1.2} />
+                <title>{`${segment.name}${segment.disabled ? " — không phù hợp hoặc chưa xác nhận size" : " — có size phù hợp"}`}</title>
+                <path d={segmentPath(index, count)} fill={segment.disabled ? "#17191e" : theme.fill} stroke="#555555" strokeOpacity={0.55} strokeWidth={0.45} />
                 <g transform={`rotate(${center} ${CENTER} ${CENTER})`}>
                   <text
                     transform={`translate(${CENTER} ${CENTER}) rotate(-90)`}
@@ -132,23 +133,23 @@ export default function LuckyWheel({
                     y={-4}
                     textAnchor="end"
                     dominantBaseline="middle"
-                    fill={theme.label}
-                    fontSize={count > 12 ? Math.min(15, labelFontSize(segment.label)) : labelFontSize(segment.label)}
+                    fill={segment.disabled ? "#626671" : theme.label}
+                    fontSize={count > 12 ? Math.min(6.2, 95 / Math.max(segment.label.length, 1)) : labelFontSize(segment.label)}
                     fontWeight={700}
-                    letterSpacing={0.5}
+                    letterSpacing={count > 12 ? 0 : .5}
                     style={{ fontFamily: "var(--font-be-vietnam), sans-serif" }}
                   >
                     {segment.label}
                   </text>
-                  {segment.caption ? (
+                  {segment.caption && count <= 12 ? (
                     <text
                       transform={`translate(${CENTER} ${CENTER}) rotate(-90)`}
                       x={RADIUS - 16}
-                      y={15}
+                      y={count > 12 ? 3 : 15}
                       textAnchor="end"
                       dominantBaseline="middle"
-                      fill={theme.caption}
-                      fontSize={count > 12 ? 6.5 : 9.5}
+                      fill={segment.disabled ? "#626671" : theme.caption}
+                      fontSize={count > 12 ? 3 : 9.5}
                       fontWeight={600}
                       letterSpacing={2}
                       style={{ fontFamily: "var(--font-be-vietnam), sans-serif" }}

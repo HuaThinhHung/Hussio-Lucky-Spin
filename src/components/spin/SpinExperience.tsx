@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import CodeEntryCard, { type EntryPhase } from "@/components/spin/CodeEntryCard";
 import Confetti from "@/components/spin/Confetti";
 import LuckyWheel from "@/components/spin/LuckyWheel";
@@ -17,6 +17,17 @@ const CONFETTI_MS = 3200;
 type SpinExperienceProps = {
   segments: WheelSegmentView[];
   shopUrl: string;
+  sizeControls?: ReactNode;
+  /** Read at spin time, so the customer may change size after checking the order. */
+  selectedSizes?: { top: string; pants: string };
+  requireTopSize?: boolean;
+  /** Zalo OA link shown on the result. */
+  contactUrl?: string;
+  /** Order number from the link (?order=1284), pre-filled in the form. */
+  initialOrder?: string;
+  onPhaseChange?: (phase: EntryPhase["name"]) => void;
+  /** Called when the server reports a size or the whole pool ran out. */
+  onStockChanged?: () => void;
 };
 
 /**
@@ -24,7 +35,17 @@ type SpinExperienceProps = {
  * prize -> wheel animates to the returned segment -> result modal.
  * The browser never picks a prize.
  */
-export default function SpinExperience({ segments, shopUrl }: SpinExperienceProps) {
+export default function SpinExperience({
+  segments,
+  shopUrl,
+  sizeControls,
+  selectedSizes = { top: "", pants: "" },
+  requireTopSize = false,
+  contactUrl = "",
+  initialOrder = "",
+  onPhaseChange,
+  onStockChanged,
+}: SpinExperienceProps) {
   const reducedMotion = useReducedMotion();
   const [phase, setPhase] = useState<EntryPhase>({ name: "entry" });
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +77,10 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
   }, []);
 
   useEffect(() => {
+    onPhaseChange?.(phase.name);
+  }, [phase.name, onPhaseChange]);
+
+  useEffect(() => {
     if (!showConfetti) return;
     const timer = window.setTimeout(() => setShowConfetti(false), CONFETTI_MS);
     return () => window.clearTimeout(timer);
@@ -79,21 +104,21 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
       setRotation((current) => targetRotation(current, index, Math.max(segments.length, 1), 0, 0));
       setPhase({ name: "done", result: spin, isHistory: true });
       setModalOpen(true);
-      setAnnouncement(`Bạn đã quay mã này: ${spin.prizeHeadline}`);
+      setAnnouncement(`Đơn này đã quay: ${spin.prizeHeadline}`);
     },
     [segmentIndexFor, segments.length],
   );
 
-  async function handleSubmit(code: string) {
+  async function handleSubmit(code: string, contact = "") {
     setError(null);
     if (!code.trim()) {
       setError(LUCKY_ERROR_MESSAGES.VALIDATION);
       return;
     }
     setPhase({ name: "checking" });
-    setAnnouncement("Đang kiểm tra mã của bạn...");
-    const nextCredentials = { code: code.trim() };
-    const response = await validateCode(nextCredentials);
+    setAnnouncement("Đang kiểm tra đơn hàng...");
+    const nextCredentials = { code: code.trim(), contact: contact.trim() };
+    const response = await validateCode({ ...nextCredentials, ...selectedSizes });
 
     if (!response.ok) {
       setPhase({ name: "entry" });
@@ -109,22 +134,32 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
     const ready = { name: "ready", customerName: response.customerName, askNameConsent: response.askNameConsent } as const;
     readyPhase.current = ready;
     setPhase(ready);
-    setAnnouncement("Mã hợp lệ. Bạn có 01 lượt quay.");
+    setAnnouncement("Đơn hợp lệ. Bạn có 01 lượt quay.");
     if (!wheelInView) wheelRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
   }
 
   async function handleSpin() {
     if (phase.name !== "ready" || !credentials || spinLock.current) return;
+    if (requireTopSize && !selectedSizes.top) {
+      const message = "Vui lòng chọn size áo trước khi quay.";
+      setError(message);
+      setAnnouncement(message);
+      document.getElementById("size-picker")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
+      return;
+    }
     spinLock.current = true;
     setError(null);
     setPhase({ name: "spinning" });
     setAnnouncement("Đang quay…");
     wheelRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
 
-    const response = await requestSpin({ ...credentials, consentFullName });
+    const response = await requestSpin({ ...credentials, ...selectedSizes, consentFullName });
     if (!response.ok) {
       spinLock.current = false;
-      const retryable = response.error === "NETWORK" || response.error === "SERVER_ERROR" || response.error === "RATE_LIMITED";
+      // Stock changed under the customer: refresh the wheel and let them pick another size.
+      const stock = response.error === "SIZE_UNAVAILABLE" || response.error === "NO_PRIZES";
+      if (stock) onStockChanged?.();
+      const retryable = stock || response.error === "NETWORK" || response.error === "SERVER_ERROR" || response.error === "RATE_LIMITED";
       setPhase(retryable && readyPhase.current ? readyPhase.current : { name: "entry" });
       setError(response.message);
       setAnnouncement(response.message);
@@ -190,6 +225,8 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
     <section id="quay" aria-labelledby="code-title" className="relative mx-auto spin-stage max-w-[1280px] px-5 pb-12 sm:px-8">
       <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
         <div className="order-2"><CodeEntryCard
+          key={initialOrder}
+          initialCode={initialOrder}
           phase={phase}
           error={error}
           consentFullName={consentFullName}
@@ -211,6 +248,7 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
             onSpinClick={handleSpin}
             onSpinEnd={handleSpinEnd}
           />
+          {sizeControls}
           <p className="mt-6 text-center text-xs tracking-[0.25em] text-ivory/55">
             01 MÃ / 01 LƯỢT QUAY / 01 MÓN QUÀ
           </p>
@@ -242,6 +280,7 @@ export default function SpinExperience({ segments, shopUrl }: SpinExperienceProp
         isHistory={phase.name === "done" && phase.isHistory}
         credentials={credentials}
         shopUrl={shopUrl}
+        contactUrl={contactUrl}
         onClose={() => setModalOpen(false)}
         onResultUpdate={handleResultUpdate}
       />

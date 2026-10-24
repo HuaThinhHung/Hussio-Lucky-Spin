@@ -2,8 +2,10 @@ const SHEET_ID_ = '1qx27OZ71bVo1MrLxd4unpUKKhRGesaCkE_FW5qJKcIE';
 const PRIZE_IDS_ = ['socks','hat','belt','v10','v20','v30','v40','v50'];
 
 function doGet() {
+  // ALLOWALL lets hussio.com embed the wheel in an iframe (e.g. a Shopify page).
   return HtmlService.createHtmlOutputFromFile('Index').setTitle('HUSSIO — Black Friday')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 // Only these customer operations are exposed. All staff helpers end in underscore
@@ -50,12 +52,19 @@ function customerRequest(action, body) {
   });
 }
 
+// The campaign is website-only now: the menu serves the website flow. Menu items
+// must name public functions (a trailing "_" hides a function from menus too).
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('HUSSIO')
-    .addItem('Cấp mã cho đơn hàng','issueCode_')
-    .addItem('Tra cứu mã / đơn hàng','lookupCode_')
-    .addItem('Xác nhận đã trao quà','fulfillCode_')
-    .addItem('Hủy mã chưa quay','cancelCode_').addToUi();
+    .addItem('Tra cứu đơn website','menuLookupOrder')
+    .addItem('Đánh dấu đã đóng gói quà','menuMarkPacked')
+    .addItem('Huỷ quà (đơn huỷ/hoàn)','menuCancelGift')
+    .addSeparator()
+    .addItem('Nạp size từ file tồn kho','menuImportSizes')
+    .addItem('Tạo / cập nhật bảng website','menuSetupWebsite')
+    .addSeparator()
+    .addItem('Cài đặt kết nối Shopify','menuSetupShopify')
+    .addItem('Kiểm tra kết nối Shopify','menuTestShopify').addToUi();
 }
 
 function issueCode_() {

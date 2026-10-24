@@ -4,7 +4,8 @@ test.describe("public page", () => {
   test("has every required section and no horizontal overflow", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("BLACKFRIDAY.");
-    await expect(page.getByRole("heading", { name: "NHẬP MÃ MAY MẮN" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "XÁC MINH ĐƠN HÀNG" })).toBeVisible();
+    await expect(page.getByLabel("SĐT HOẶC EMAIL ĐẶT HÀNG")).toBeVisible();
     await expect(page.locator("input[type=tel]")).toHaveCount(0);
     await expect(page.getByRole("img", { name: /Vòng quay HUSSIO/ })).toBeVisible();
 
@@ -28,26 +29,40 @@ test.describe("public page", () => {
     }
   });
 
-  test("invalid code shows a friendly error", async ({ page }) => {
+  test("order check shows a friendly message", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("MÃ QUAY").fill("HUSSIO-BF26-ZZZZZZ");
+    await page.getByLabel("MÃ ĐƠN HÀNG").fill("#999999");
+    await page.getByLabel("SĐT HOẶC EMAIL ĐẶT HÀNG").fill("0901234567");
     await page.getByRole("button", { name: "KIỂM TRA LƯỢT QUAY" }).click();
-    await expect(page.locator("#code-error")).toContainText(/không hợp lệ|chưa bắt đầu|quá nhanh/);
+    // Without NEXT_PUBLIC_SHEET_API_URL the page is a preview: "chưa bắt đầu"; with it: "Không tìm thấy đơn".
+    await expect(page.locator("#code-error")).toContainText(/không tìm thấy|chưa bắt đầu|quá nhanh/i);
   });
 
-  test("winner API never exposes PII fields", async ({ request }) => {
-    const response = await request.get("/api/winners");
-    expect((await request.get("/api/manage/codes")).status()).toBe(401);
-    expect((await request.post("/api/manage/codes", { data: { action: "batch" } })).status()).toBe(401);
-    expect(response.ok()).toBeTruthy();
-    const { winners } = (await response.json()) as { winners: Record<string, unknown>[] };
-    for (const winner of winners) {
-      expect(Object.keys(winner).sort()).toEqual(["city", "createdAt", "displayName", "id", "prizeName", "prizeType"]);
+  test("order number from the e-mail link is pre-filled", async ({ page }) => {
+    await page.goto("/?order=1284");
+    await expect(page.getByLabel("MÃ ĐƠN HÀNG")).toHaveValue("#1284");
+  });
+
+  test("picking a size darkens gifts that do not fit", async ({ page }) => {
+    await page.goto("/");
+    const dark = page.locator(".wheel-artwork svg title", { hasText: "không phù hợp" });
+    await expect(dark).toHaveCount(0);
+    await page.locator("#size-picker button", { hasText: /^L/ }).click();
+    await expect(page.locator("#size-picker button[aria-pressed=true]")).toHaveCount(1);
+    expect(await dark.count()).toBeGreaterThan(0);
+  });
+
+  // The old database admin and APIs are retired (src/proxy.ts): operations live in the Google Sheet.
+  test("legacy APIs are closed and return no customer data", async ({ request }) => {
+    for (const path of ["/api/winners", "/api/manage/codes", "/api/lucky/validate"]) {
+      const response = await request.get(path);
+      expect(response.status()).toBe(410);
+      expect(Object.keys(await response.json()).sort()).toEqual(["message", "ok"]);
     }
   });
 
-  test("admin requires login", async ({ page }) => {
-    await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/login/);
+  test("legacy admin is closed", async ({ request }) => {
+    expect((await request.get("/admin")).status()).toBe(410);
+    expect((await request.get("/admin/codes")).status()).toBe(410);
   });
 });

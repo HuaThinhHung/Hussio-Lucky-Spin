@@ -1,0 +1,29 @@
+{%- comment -%}
+  HUSSIO Lucky Spin — nút "QUAY QUÀ" trong email xác nhận đơn hàng.
+  Cách cài (không cần app, mọi gói Shopify):
+    Shopify admin → Settings → Notifications → Customer notifications → Order confirmation → Edit code
+    Dán đoạn dưới đây ngay sau lời cảm ơn đầu email, đổi LINK_VONG_QUAY thành link vòng quay
+    (link /exec của Apps Script hoặc https://quay.hussio-vn.com), bấm "Send test email" để xem trước, rồi Save.
+  Mã đơn được điền sẵn (?order=1284); khách chỉ cần chọn size + nhập SĐT/email.
+  Điều kiện trong email chỉ để hiện nút: hệ thống quay vẫn kiểm tra lại đơn (website, chưa huỷ, tiền hàng ≥ 1.300.000đ).
+  Shopify lưu tiền trong Liquid theo đơn vị x100: 1.300.000đ = 130000000.
+{%- endcomment -%}
+{%- assign lucky_spin_url = 'LINK_VONG_QUAY' -%}
+{%- if subtotal_price >= 130000000 -%}
+<table class="row" style="width:100%;border-collapse:collapse;margin:24px 0;">
+  <tr>
+    <td style="background:#111111;border-radius:8px;padding:24px;text-align:center;font-family:Arial,sans-serif;">
+      <p style="margin:0;color:#e4383e;font-size:12px;letter-spacing:2px;font-weight:bold;">BLACK FRIDAY · LUCKY SPIN</p>
+      <p style="margin:10px 0 0;color:#ffffff;font-size:20px;font-weight:bold;">Đơn {{ order_name }} có 01 lượt quay quà</p>
+      <p style="margin:8px 0 18px;color:#d0d0d0;font-size:14px;line-height:1.5;">
+        Chọn size áo/quần, nhập SĐT hoặc email đặt hàng và quay ngay.<br>
+        Quà trúng được đóng gói gửi kèm đơn này — quay sớm có nhiều size hơn.
+      </p>
+      <a href="{{ lucky_spin_url }}?order={{ order_name | remove: '#' | url_encode }}"
+         style="display:inline-block;background:#d92d32;color:#ffffff;text-decoration:none;font-weight:bold;letter-spacing:2px;font-size:14px;padding:14px 32px;border-radius:30px;">
+        QUAY QUÀ NGAY
+      </a>
+    </td>
+  </tr>
+</table>
+{%- endif -%}

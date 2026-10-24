@@ -18,6 +18,7 @@ export type LuckyErrorCode =
   | "NOT_PRODUCT_PRIZE"
   | "REWARD_LOCKED"
   | "SIZE_UNAVAILABLE"
+  | "ORDER_SHIPPED"
   | "RATE_LIMITED"
   | "NETWORK"
   | "SERVER_ERROR";
@@ -38,6 +39,7 @@ export const LUCKY_ERROR_MESSAGES: Record<LuckyErrorCode, string> = {
   NOT_PRODUCT_PRIZE: "Phần thưởng này không cần chọn kích thước.",
   REWARD_LOCKED: "Phần thưởng đã được HUSSIO xử lý, không thể thay đổi thông tin.",
   SIZE_UNAVAILABLE: "Size này hiện đã hết trong kho quà. Vui lòng chọn size khác.",
+  ORDER_SHIPPED: "Đơn hàng đã được giao cho đơn vị vận chuyển. Vui lòng nhắn HUSSIO để được hỗ trợ.",
   RATE_LIMITED: "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
   NETWORK: "Không thể kết nối. Vui lòng thử lại.",
   SERVER_ERROR: "Có lỗi xảy ra. Vui lòng thử lại hoặc liên hệ HUSSIO.",
@@ -81,7 +83,35 @@ export type SpinResultView = {
   rewardStatusLabel: string;
   voucher: VoucherView | null;
   product: ProductRewardView | null;
+  /** Website flow: the Shopify order the spin belongs to, e.g. "#1284". */
+  orderName?: string;
+  /** Website flow: the exact item reserved for the order. */
+  gift?: WebGiftView | null;
 };
+
+export type WebGiftView = {
+  name: string;
+  size: string;
+  color: string;
+  sku: string;
+  /** False when the order had already shipped: CS sends the gift separately. */
+  packWithOrder: boolean;
+};
+
+/** One gift on the website wheel, as listed in the Sheet (WEB_GIFT_LIMITS order). */
+export type CatalogGift = {
+  id: string;
+  name: string;
+  /** "top" = áo/polo/khoác/sơ mi, "pants" = quần, "any" = no size needed. */
+  group: "top" | "pants" | "any";
+  /** Sizes with stock left right now. */
+  sizes: string[];
+  available: boolean;
+};
+
+export type CatalogResponse =
+  | { ok: true; open: boolean; contactUrl: string; gifts: CatalogGift[] }
+  | LuckyError;
 
 export type ValidateResponse =
   | {
@@ -102,6 +132,7 @@ export type SpinResponse =
 export type ConfirmRewardResponse = { ok: true; result: SpinResultView } | LuckyError;
 
 export type WheelSegmentView = {
+  disabled?: boolean;
   id: string;
   name: string;
   label: string;

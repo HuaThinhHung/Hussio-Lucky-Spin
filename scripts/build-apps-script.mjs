@@ -7,7 +7,8 @@ import { Scanner } from '@tailwindcss/oxide';
 const root=process.cwd();
 const logo=(await readFile('public/brand/hussio-logo.png')).toString('base64');
 const result=await build({entryPoints:['apps-script/client.tsx'],bundle:true,write:false,minify:true,
-  format:'iife',target:'es2020',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},
+  // Inside Apps Script the page talks to the server through google.script.run, so no API URL.
+  format:'iife',target:'es2020',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_SHEET_API_URL':'""'},
   plugins:[{name:'inline-logo',setup(b){b.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'inline'}));
     b.onLoad({filter:/.*/,namespace:'inline'},()=>({loader:'jsx',resolveDir:root,contents:`import React from 'react';export default function Image({priority,...props}){return <img {...props} src="data:image/png;base64,${logo}" />}`}));}}]});
 const compiled=await compile(await readFile('src/app/globals.css','utf8'),{base:path.join(root,'src/app'),onDependency(){}});
