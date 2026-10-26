@@ -126,7 +126,7 @@ export default function LuckyWheel({
               <g key={segment.id}>
                 <title>{`${segment.name} — ${segment.sizeLabel ?? segment.caption ?? ""}${segment.disabled ? " — không khả dụng với lựa chọn hiện tại" : ""}`}</title>
                 <path d={segmentPath(index, count)} fill={segment.disabled ? "#17191e" : theme.fill} stroke="#555555" strokeOpacity={0.55} strokeWidth={0.45} />
-                <g transform={`rotate(${center} ${CENTER} ${CENTER})`}>
+                <g opacity={segment.disabled ? 0 : 1} transform={`rotate(${center} ${CENTER} ${CENTER})`}>
                   <text
                     transform={`translate(${CENTER} ${CENTER}) rotate(-90)`}
                     x={RADIUS - 14}

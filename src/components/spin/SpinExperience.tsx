@@ -60,6 +60,15 @@ export default function SpinExperience({
   const [showConfetti, setShowConfetti] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [wheelInView, setWheelInView] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!expanded) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setExpanded(false); };
+    window.addEventListener("keydown", escape);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", escape); };
+  }, [expanded]);
   const spinLock = useRef(false);
   const readyPhase = useRef<Extract<EntryPhase, { name: "ready" }> | null>(null);
   const wheelRef = useRef<HTMLDivElement>(null);
@@ -240,7 +249,8 @@ export default function SpinExperience({
           onReset={handleReset}
         /></div>
 
-        <div ref={wheelRef} className="order-1 flex flex-col items-center pt-6">
+        <div ref={wheelRef} className={`wheel-panel order-1 flex flex-col items-center pt-6${expanded ? " wheel-expanded" : ""}`}>
+          <button type="button" className="wheel-expand" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{expanded ? "✕ Đóng toàn màn hình" : "⛶ Xem toàn màn hình"}</button>
           <LuckyWheel
             segments={segments}
             rotation={rotation}

@@ -118,3 +118,21 @@
 [data-theme="dark"] .size-matches li { background: #ffffff10; border-color: #ffffff24; }
 .campaign-closed { max-width: 1500px; margin: 0 auto; padding: 0 32px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: #d92d32; text-align: right; }
 @media(max-width:1023px) { .campaign-closed { text-align: center; padding: 0 20px 8px; } }
+
+/* Give the wheel the available viewport instead of a fixed 760px column. */
+.spin-stage { max-width: none; width: 100%; padding-inline: clamp(12px, 2vw, 40px); }
+.spin-stage > .grid { grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; }
+.spin-stage > .grid > .order-2 { margin-top: 0; align-self: center; }
+.spin-stage .wheel-artwork { max-width: 1200px; width: 100%; }
+.wheel-panel { min-width: 0; }
+.wheel-expand { align-self: flex-end; padding: 10px 16px; margin-bottom: 24px; border: 1px solid #8885; border-radius: 24px; font-size: 13px; cursor: pointer; background: var(--theme-navy); }
+.wheel-panel.wheel-expanded { position: fixed; inset: 0; z-index: 45; display: flex; overflow: auto; background: var(--theme-navy); color: var(--theme-ivory); padding: 24px; }
+.wheel-panel.wheel-expanded .wheel-artwork { width: min(94vw, calc(100dvh - 100px)); max-width: none; flex-shrink: 0; }
+.wheel-panel.wheel-expanded .wheel-expand { position: sticky; top: 0; z-index: 40; }
+.wheel-panel.wheel-expanded .size-selection { max-width: 1000px; }
+@media(max-width:1023px) {
+  .spin-stage > .grid { grid-template-columns: 1fr; }
+  .spin-stage .wheel-artwork { max-width: none; }
+  .wheel-panel.wheel-expanded { padding: 12px; }
+}
+

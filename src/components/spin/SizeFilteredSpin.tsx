@@ -58,8 +58,8 @@ export default function SizeFilteredSpin({ shopUrl }: { shopUrl: string }) {
   const pantsCounts = useMemo(() => sizeCounts(catalog.gifts, "pants"), [catalog.gifts]);
   // Garments the customer can win with the sizes picked; size-free gifts are always in the draw.
   const matches = useMemo(
-    () => catalog.gifts.filter((gift) => gift.group !== "any" && gift.available && fitsSizes(gift, sizes, catalog.live)),
-    [catalog.gifts, sizes, catalog.live],
+    () => catalog.gifts.filter((gift) => gift.group !== "any" && gift.available && fitsSizes(gift, sizes)),
+    [catalog.gifts, sizes],
   );
   const hasTop = catalog.gifts.some((gift) => gift.group === "top");
   // A top size is required only while some top still has stock; otherwise size-free gifts remain.

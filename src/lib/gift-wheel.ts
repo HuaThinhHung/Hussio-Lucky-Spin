@@ -59,14 +59,12 @@ export function wheelLabel(name: string): { label: string; caption: string } {
 
 /**
  * A garment fits when it has stock in one of the chosen sizes of its group.
- * `sizesKnown` is false for the offline snapshot, where most garments carry no
- * size data yet: those stay lit instead of looking sold out.
+ * Missing size data never counts as a match, including in the offline preview.
  */
-export function fitsSizes(gift: CatalogGift, sizes: SizeChoice, sizesKnown = true): boolean {
+export function fitsSizes(gift: CatalogGift, sizes: SizeChoice): boolean {
   if (gift.group === "any") return true;
   const chosen = gift.group === "pants" ? sizes.pants : sizes.top;
   if (!chosen.length) return false;
-  if (!sizesKnown && !gift.sizes.length) return true;
   return chosen.some((size) => gift.sizes.includes(size));
 }
 
@@ -86,7 +84,7 @@ export function toSegments(gifts: CatalogGift[], sizes: SizeChoice, sizesKnown =
       : !gift.sizes.length ? (sizesKnown ? "Hết size" : "Chưa có size")
       : !applicable.length ? "Không khớp size"
       : `Size ${applicable.join(" / ")}${sizesKnown ? "" : " · tham khảo"}`;
-    return { id: gift.id, name: gift.name, label, caption, sizeLabel, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes, sizesKnown)) };
+    return { id: gift.id, name: gift.name, label, caption, sizeLabel, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes)) };
   });
 }
 
