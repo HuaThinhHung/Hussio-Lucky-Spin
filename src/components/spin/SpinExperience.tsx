@@ -13,13 +13,14 @@ import { cosmeticJitter, targetRotation } from "@/lib/wheel";
 const SPIN_DURATION_MS = 4600;
 const REDUCED_MOTION_DURATION_MS = 500;
 const CONFETTI_MS = 3200;
+const NO_SIZES = { top: [], pants: [] };
 
 type SpinExperienceProps = {
   segments: WheelSegmentView[];
   shopUrl: string;
   sizeControls?: ReactNode;
-  /** Read at spin time, so the customer may change size after checking the order. */
-  selectedSizes?: { top: string; pants: string };
+  /** Read at spin time, so the customer may change sizes after checking the order. Up to 3 per group. */
+  selectedSizes?: { top: string[]; pants: string[] };
   requireTopSize?: boolean;
   /** Zalo OA link shown on the result. */
   contactUrl?: string;
@@ -39,7 +40,7 @@ export default function SpinExperience({
   segments,
   shopUrl,
   sizeControls,
-  selectedSizes = { top: "", pants: "" },
+  selectedSizes = NO_SIZES,
   requireTopSize = false,
   contactUrl = "",
   initialOrder = "",
@@ -65,6 +66,8 @@ export default function SpinExperience({
   const pendingResult = useRef<SpinResultView | null>(null);
 
   const durationMs = reducedMotion ? REDUCED_MOTION_DURATION_MS : SPIN_DURATION_MS;
+  // The API takes each group as "M,L"; a single size stays a plain "M".
+  const sizeParams = { top: selectedSizes.top.join(","), pants: selectedSizes.pants.join(",") };
 
   useEffect(() => {
     const node = wheelRef.current;
@@ -118,7 +121,7 @@ export default function SpinExperience({
     setPhase({ name: "checking" });
     setAnnouncement("Đang kiểm tra đơn hàng...");
     const nextCredentials = { code: code.trim(), contact: contact.trim() };
-    const response = await validateCode({ ...nextCredentials, ...selectedSizes });
+    const response = await validateCode({ ...nextCredentials, ...sizeParams });
 
     if (!response.ok) {
       setPhase({ name: "entry" });
@@ -140,8 +143,8 @@ export default function SpinExperience({
 
   async function handleSpin() {
     if (phase.name !== "ready" || !credentials || spinLock.current) return;
-    if (requireTopSize && !selectedSizes.top) {
-      const message = "Vui lòng chọn size áo trước khi quay.";
+    if (requireTopSize && !selectedSizes.top.length) {
+      const message = "Vui lòng tick ít nhất 1 size áo trước khi quay.";
       setError(message);
       setAnnouncement(message);
       document.getElementById("size-picker")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
@@ -153,7 +156,7 @@ export default function SpinExperience({
     setAnnouncement("Đang quay…");
     wheelRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" });
 
-    const response = await requestSpin({ ...credentials, ...selectedSizes, consentFullName });
+    const response = await requestSpin({ ...credentials, ...sizeParams, consentFullName });
     if (!response.ok) {
       spinLock.current = false;
       // Stock changed under the customer: refresh the wheel and let them pick another size.

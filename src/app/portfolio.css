@@ -69,7 +69,8 @@
 .public-theme .header-logo { display: inline-flex; width: 150px; padding: 12px 0; }
 .header-logo img { width: 100%; height: auto; }
 [data-theme="dark"] .header-logo img { filter: brightness(0) invert(1); }
-.fluid-background { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 1; background: transparent; }
+/* Sized to the large viewport so the phone URL bar showing/hiding never resizes (and resets) the simulation. */
+.fluid-background { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100lvh; z-index: -1; pointer-events: none; opacity: 1; background: transparent; }
 .fluid-background canvas { display: block; width: 100%; height: 100%; }
 [data-theme="dark"] .fluid-background { opacity: .7; background: transparent; }
 .ambient-scene { display: none; }
@@ -103,5 +104,17 @@
 .size-groups button:disabled { opacity: .35; cursor: not-allowed; text-decoration: line-through; }
 .size-groups fieldset:disabled button[aria-pressed=false] { opacity: .35; }
 .size-summary strong { color: #d92d32; font-size: 15px; }
+/* Multi-size: a tick on picked sizes; at the 3-size cap the other buttons dim without the sold-out strike. */
+.size-groups legend small { font-size: 11px; font-weight: 500; opacity: .55; margin-left: 2px; }
+.size-groups button { position: relative; }
+.size-groups button i { position: absolute; top: 3px; right: 6px; font-size: 9px; font-style: normal; font-weight: 700; }
+.size-groups button[data-full]:disabled { text-decoration: none; opacity: .45; }
+.size-matches { margin-top: 4px; }
+.size-matches p { margin: 0 0 10px; }
+.size-matches strong { color: #d92d32; }
+.size-matches ul { display: flex; flex-wrap: wrap; gap: 6px; max-height: 172px; overflow-y: auto; margin: 0 0 8px; padding: 0; list-style: none; }
+.size-matches li { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 11px; border: 1px solid #1c223c26; border-radius: 30px; background: #ffffffb8; font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+.size-matches li small { font-size: 8px; font-weight: 600; letter-spacing: .1em; color: #d92d32; }
+[data-theme="dark"] .size-matches li { background: #ffffff10; border-color: #ffffff24; }
 .campaign-closed { max-width: 1500px; margin: 0 auto; padding: 0 32px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: #d92d32; text-align: right; }
 @media(max-width:1023px) { .campaign-closed { text-align: center; padding: 0 20px 8px; } }

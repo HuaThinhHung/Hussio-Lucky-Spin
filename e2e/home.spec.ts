@@ -52,6 +52,17 @@ test.describe("public page", () => {
     expect(await dark.count()).toBeGreaterThan(0);
   });
 
+  test("up to three sizes can be ticked and the fitting garments are listed", async ({ page }) => {
+    await page.goto("/");
+    const button = (size: string) => page.locator("#size-picker button", { hasText: new RegExp(`^✓?${size}$`) });
+    for (const size of ["M", "L", "XL"]) await button(size).click();
+    await expect(page.locator("#size-picker button[aria-pressed=true]")).toHaveCount(3);
+    await expect(button("XXL")).toBeDisabled();
+    expect(await page.locator(".size-matches li").count()).toBeGreaterThan(1);
+    await button("L").click();
+    await expect(button("XXL")).toBeEnabled();
+  });
+
   // The old database admin and APIs are retired (src/proxy.ts): operations live in the Google Sheet.
   test("legacy APIs are closed and return no customer data", async ({ request }) => {
     for (const path of ["/api/winners", "/api/manage/codes", "/api/lucky/validate"]) {

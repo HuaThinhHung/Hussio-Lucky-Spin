@@ -1,7 +1,7 @@
 # Lucky Spin độc quyền website — triển khai & vận hành
 
 Khách mua trên hussio.com (đơn từ 1.300.000đ tiền hàng sau giảm, **kể cả COD**) → bấm nút "QUAY QUÀ" trong email xác nhận
-(mã đơn được điền sẵn) → **chọn size** → nhập SĐT/email đặt hàng → quay → quà + size + màu ghi vào Google Sheet
+(mã đơn được điền sẵn) → **chọn 1–3 size mỗi nhóm áo/quần** → nhập SĐT/email đặt hàng → quay → quà + size + màu ghi vào Google Sheet
 và (tuỳ chọn) ghi tag + ghi chú lên đơn Shopify để kho đóng gói kèm.
 
 ```
@@ -41,6 +41,13 @@ Menu **HUSSIO → Tạo / cập nhật bảng website**. Lệnh này không xoá
 - ghi tiêu đề 14 cột cho `WEB_RESULTS`;
 - thêm cột **Trọng số** (để trống = 1) cho `WEB_GIFT_LIMITS`;
 - thêm `SPIN_UNTIL`, `ALLOW_SHIPPED_ORDERS`, `ZALO_URL` vào `CAU_HINH`.
+- ẩn các tab mã quay cũ dưới tên `CU_…`, giữ dữ liệu để tra cứu;
+- dựng `TONG_QUAN` theo dõi đơn website và `TON_QUA` tính tồn theo từng quà/SKU;
+- sắp tab theo thứ tự: TONG_QUAN → CAU_HINH → WEB_GIFT_LIMITS → WEB_GIFT_VARIANTS → TON_QUA → WEB_RESULTS.
+
+Ngày 26/10/2026 đã nâng cấp cấu trúc Sheet vận hành trực tiếp qua connector và đọc lại công thức không lỗi.
+Dashboard cũ được giữ tại `CU_TONG_QUAN`. Chương trình vẫn PAUSED, toàn bộ quỹ quà chưa bật.
+Việc sửa Sheet không tự cài Apps Script: menu HUSSIO và API vẫn cần triển khai các file ở Bước 1.
 
 ### Bước 3 — Kết nối Shopify ("dùng ứng dụng Shopify đang có")
 Cửa hàng: `sbczjd-yj.myshopify.com` (domain hussio.com).
@@ -72,6 +79,10 @@ Không dán Client secret/token vào Sheet, chat hay code. Chúng chỉ nằm tr
 
 Vòng quay đọc trực tiếp hai bảng này (cache 30 giây): sửa Sheet là vòng quay cập nhật, size hết tự mờ đi.
 Quà đã trúng được trừ dựa trên `WEB_RESULTS`; dòng chuyển sang `HUY` trả quà về quỹ.
+
+Khách tick tối đa 3 size cho từng nhóm. Bốc quà chỉ trong các size đã tick và ghi đúng size thực tế trúng.
+Bản xem trước chưa nối API có thể làm sáng mẫu chưa rõ size để xem bố cục; đây không phải tồn kho thật.
+Hiệu ứng mobile nhận vuốt và có nét vẽ tự động ngắt quãng; tôn trọng cài đặt giảm chuyển động của thiết bị.
 
 ### Bước 5 — Thời gian & tuỳ chọn (`CAU_HINH`)
 | Khoá | Ý nghĩa |
@@ -126,10 +137,10 @@ link `/exec` → **Send test email** → Save. Nút chỉ hiện với đơn có
 
 ## 5. Kiểm thử đã chạy
 ```bash
-node scripts/test-website-orders.mjs   # 23 kiểm tra backend Apps Script trên Sheet/Shopify giả lập
+node scripts/test-website-orders.mjs   # 25 kiểm tra backend Apps Script trên Sheet/Shopify giả lập
 npm run typecheck && npm run lint
 npm test                               # 69 test Vitest (hệ thống cũ)
-npx playwright test                    # 14 test giao diện mobile 375px + desktop (cần npm run dev)
+npx playwright test                    # 16 test đã được tác giả trước báo chạy; lần tiếp quản kiểm tra UI qua Chrome
 ```
 Ngoài ra đã chạy giao diện Apps Script thật trong trình duyệt với code server thật trên Sheet giả lập: chọn size →
 vòng quay mờ đúng món, đơn COD hợp lệ, chặn quay khi chưa chọn size, kim dừng đúng món server bốc, ghi đúng 1 dòng,

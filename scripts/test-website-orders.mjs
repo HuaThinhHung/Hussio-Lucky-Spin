@@ -9,11 +9,26 @@ const FILES = ['Code.gs', 'WebCatalog.gs', 'WebsiteOrders.gs', 'WebsiteAdmin.gs'
 const SHEET_ID = '1qx27OZ71bVo1MrLxd4unpUKKhRGesaCkE_FW5qJKcIE';
 const DAY = 864e5;
 
+// Builders (data validation, conditional format, protection): any call chains, build() gives a rule.
+const chain = () => new Proxy(function () {}, {get: (_, prop) => (prop === 'build' ? () => ({}) : () => chain())});
+
 class FakeSheet {
-  constructor(name, rows = []) { this.name = name; this.data = rows.map((r) => [...r]); }
+  constructor(name, rows = []) { this.name = name; this.data = rows.map((r) => [...r]); this.hidden = false; this.validated = []; }
   getName() { return this.name; }
+  setName(name) { this.name = name; return this; }
+  isSheetHidden() { return this.hidden; }
+  hideSheet() { this.hidden = true; return this; }
   getLastRow() { return this.data.length; }
+  getMaxRows() { return Math.max(1000, this.data.length); }
+  getMaxColumns() { return 26; }
+  clear() { this.data = []; return this; }
+  deleteRow(row) { this.data.splice(row - 1, 1); }
+  getProtections() { return this.protections ?? []; }
+  protect() { this.protections = [{}]; return chain(); }
   setFrozenRows() {}
+  setColumnWidth() {}
+  setTabColor() {}
+  setConditionalFormatRules() {}
   set(row, col, value) {
     while (this.data.length < row) this.data.push([]);
     const target = this.data[row - 1];
@@ -23,32 +38,47 @@ class FakeSheet {
   }
   appendRow(values) { const row = this.data.length + 1; values.forEach((v, j) => this.set(row, j + 1, v)); }
   getRange(row, col = 1, rows = 1, cols = 1) {
-    const range = {setNumberFormat: () => range};
-    if (typeof row === 'string') return range;
-    return Object.assign(range, {
+    const range = {};
+    // Formatting calls (bold, width, notes…) are accepted and ignored.
+    const proxy = new Proxy(range, {get: (target, prop) => (prop in target ? target[prop] : () => proxy)});
+    if (typeof row === 'string') return proxy;
+    Object.assign(range, {
       getValues: () => Array.from({length: rows}, (_, i) => Array.from({length: cols}, (_, j) => this.data[row - 1 + i]?.[col - 1 + j] ?? '')),
       getValue: () => this.data[row - 1]?.[col - 1] ?? '',
-      setValues: (values) => { values.forEach((r, i) => r.forEach((v, j) => this.set(row + i, col + j, v))); return range; },
-      setValue: (value) => { this.set(row, col, value); return range; },
+      setValues: (values) => { values.forEach((r, i) => r.forEach((v, j) => this.set(row + i, col + j, v))); return proxy; },
+      setValue: (value) => { this.set(row, col, value); return proxy; },
+      setDataValidation: () => { this.validated.push({row, col, rows}); return proxy; },
     });
+    return proxy;
   }
 }
 
 function fakeBook(sheets) {
-  const map = new Map(sheets.map((s) => [s.name, s]));
+  const list = [...sheets];
+  let active = null;
   return {
     getName: () => 'book',
-    getSheetByName: (name) => map.get(name) ?? null,
-    getSheets: () => [...map.values()],
-    insertSheet(name) { const s = new FakeSheet(name); map.set(name, s); return s; },
-    remove: (name) => map.delete(name),
+    getSheetByName: (name) => list.find((s) => s.name === name) ?? null,
+    getSheets: () => [...list],
+    insertSheet(name) { const s = new FakeSheet(name); list.push(s); return s; },
+    remove: (name) => { const i = list.findIndex((s) => s.name === name); if (i >= 0) list.splice(i, 1); },
+    // Like Sheets, activating a hidden tab shows it again.
+    setActiveSheet(sheet) { active = sheet; sheet.hidden = false; return sheet; },
+    moveActiveSheet(position) { list.splice(list.indexOf(active), 1); list.splice(position - 1, 0, active); },
   };
 }
 
 const iso = (offsetDays) => new Date(Date.now() + offsetDays * DAY).toISOString();
 
-function makeWorld({config = {}, props = {}, limits, variants, orders, fresh = false} = {}) {
+function makeWorld({config = {}, props = {}, limits, variants, orders, fresh = false, legacy = false} = {}) {
   const book = fakeBook([
+    // Tabs left by the old lucky-code flow, as on the live Sheet.
+    ...(legacy ? [
+      new FakeSheet('TONG_QUAN', [['HUSSIO / LUCKY SPIN', 'TỔNG QUAN VẬN HÀNH'], ['Trạng thái triển khai', 'NOT_DEPLOYED']]),
+      new FakeSheet('MA_QUAY', [['Mã quay', 'Mã đơn hàng'], ['HUS-7424087485560F6A7DC78A3F', ''], ['HUS-64DF05792CB74A0023EC9FD1', '']]),
+      new FakeSheet('QUA_TANG', [['ID quà', 'Tên quà'], ['socks', 'Tặng vớ']]),
+      new FakeSheet('HUONG_DAN', [['Bước', 'Cách sử dụng'], ['5. Gửi khách', 'Khách chỉ nhập mã, không cần số điện thoại.']]),
+    ] : []),
     new FakeSheet('CAU_HINH', [['Thiết lập', 'Giá trị', 'Hướng dẫn'],
       ...Object.entries({STATUS: 'OPEN', STARTS_AT: iso(-10), ENDS_AT: iso(10), MIN_ORDER: 1300000, ...config}).map(([k, v]) => [k, v, ''])]),
     new FakeSheet('WEB_GIFT_LIMITS', [['ID quà', 'Tên quà', 'Hạn mức', 'Ghi chú', 'Bật'], ...(limits ?? [
@@ -88,6 +118,9 @@ function makeWorld({config = {}, props = {}, limits, variants, orders, fresh = f
     SpreadsheetApp: {
       openById: (id) => (id === SHEET_ID ? book : inventory),
       flush() {},
+      newDataValidation: () => chain(),
+      newConditionalFormatRule: () => chain(),
+      ProtectionType: {SHEET: 'SHEET'},
       getUi() { throw new Error('Cannot call SpreadsheetApp.getUi() from this context.'); },
     },
     CacheService: {getScriptCache: () => ({get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k)})},
@@ -230,6 +263,22 @@ check('only gifts matching the chosen sizes (or size-free gifts) can be drawn', 
     if (result.prizeName === 'ÁO POLO LUCUS V2') assert.deepEqual([result.gift.size, result.gift.sku], ['XXL', '329-12']);
     if (result.prizeName.startsWith('QUẦN')) assert.equal(result.gift.size, '30');
   }
+});
+
+check('several sizes ("XL,XXL") widen the draw to any of them; a 4th size is ignored', () => {
+  const variants = [['329-11', 'gift-77', 'top', 'XL', 'TRẮNG', 1, true], ['T-L', 'gift-65', 'top', 'L', 'ĐEN', 1, true]];
+  const limits = [['gift-77', 'ÁO POLO LUCUS V2', 3, '', true], ['gift-65', 'ÁO KHOÁC CARO TIZI', 3, '', true]];
+  const won = new Set();
+  for (let i = 0; i < 30; i++) {
+    const world = makeWorld({orders: [order()], limits, variants});
+    const reply = world.context.customerOrderRequest('spin', {code: '1284', contact: '0901234567', top: 'l, xl'});
+    assert.equal(reply.ok, true, JSON.stringify(reply));
+    won.add(reply.result.gift.size);
+  }
+  assert.deepEqual([...won].sort(), ['L', 'XL'], 'both chosen sizes can win');
+  const world = makeWorld({orders: [order()], limits, variants});
+  assert.equal(world.context.customerOrderRequest('validate', {code: '1284', contact: '0901234567', top: 'S,M,XXL,L'}).error, 'SIZE_UNAVAILABLE');
+  assert.equal(world.context.customerOrderRequest('validate', {code: '1284', contact: '0901234567', top: ['M', 'XL']}).state, 'READY');
 });
 
 check('re-opening the page shows the saved result: same contact without Shopify, other contact via Shopify', () => {
@@ -381,6 +430,43 @@ check('size import matches names without accents/"ÁO", keeps the larger duplica
   ]);
   assert.match(alerts[0][1], /QUẦN DÀI JEAN LƯNG THUN PAGANIC/);
   assert.equal(world.context.webNameKey_('Sơ mi Logo'), world.context.webNameKey_('ÁO SƠ MI LOGO'));
+});
+
+check('layout: old code tabs archived, TONG_QUAN + TON_QUA rebuilt, tabs in working order, data rows kept', () => {
+  const world = makeWorld({legacy: true, config: {DEPLOYMENT: 'NOT_DEPLOYED'}, limits: [
+    ['gift-77', 'ÁO POLO LUCUS V2', 3, '', true],
+    ['socks', 'Tặng vớ', 1, '', 'TRUE'],
+  ]});
+  const sheet = (name) => world.book.getSheetByName(name);
+  world.context.setupWebsiteOrders_();
+  assert.equal(world.context.customerCatalog().gifts.length, 1, 'a typed "TRUE" is text, not a tick');
+  world.cache.clear();
+  const notes = world.context.webLayoutWorkbook_();
+  assert.match(notes, /Đã ẩn tab cũ CU_MA_QUAY/);
+  assert.equal(sheet('MA_QUAY'), null);
+  assert.equal(sheet('CU_MA_QUAY').hidden, true);
+  assert.equal(sheet('CU_MA_QUAY').data.length, 3, 'old codes are archived, never deleted');
+  assert.deepEqual(world.book.getSheets().filter((s) => !s.hidden).map((s) => s.name),
+    ['TONG_QUAN', 'CAU_HINH', 'WEB_GIFT_LIMITS', 'WEB_GIFT_VARIANTS', 'TON_QUA', 'WEB_RESULTS']);
+  assert.ok(!('DEPLOYMENT' in world.context.config_()));
+  assert.equal(sheet('WEB_GIFT_LIMITS').data[2][4], true);
+  assert.equal(world.context.customerCatalog().gifts.find((g) => g.id === 'socks').available, true);
+  assert.ok(sheet('WEB_GIFT_LIMITS').validated.every((v) => v.row === 2 && v.rows === 2), 'validation only on data rows');
+  assert.doesNotMatch(JSON.stringify(sheet('TONG_QUAN').data), /NOT_DEPLOYED/);
+
+  // Every column a formula reads must be the column the script writes.
+  const headers = {WEB_RESULTS: sheet('WEB_RESULTS').data[0], WEB_GIFT_LIMITS: sheet('WEB_GIFT_LIMITS').data[0], WEB_GIFT_VARIANTS: sheet('WEB_GIFT_VARIANTS').data[0]};
+  const read = {WEB_RESULTS: new Set(), WEB_GIFT_LIMITS: new Set(), WEB_GIFT_VARIANTS: new Set()};
+  for (const cell of [...sheet('TONG_QUAN').data, ...sheet('TON_QUA').data].flat())
+    for (const [, tab, letter] of String(cell).matchAll(/(WEB_\w+)!([A-Z])2:\2/g)) read[tab].add(headers[tab][letter.charCodeAt(0) - 65]);
+  assert.deepEqual([...read.WEB_RESULTS].sort(), ['ID quà', 'Mã đơn', 'Ngày quay', 'SKU quà', 'Ghi lên Shopify', 'Trạng thái quà'].sort());
+  assert.deepEqual([...read.WEB_GIFT_LIMITS].sort(), ['Bật', 'Hạn mức', 'ID quà', 'Tên quà', 'Trọng số'].sort());
+  assert.deepEqual([...read.WEB_GIFT_VARIANTS].sort(), ['Bật', 'ID quà', 'Màu', 'SKU', 'SL', 'Size'].sort());
+
+  const before = JSON.stringify(['WEB_GIFT_LIMITS', 'WEB_GIFT_VARIANTS', 'WEB_RESULTS', 'CAU_HINH'].map((n) => sheet(n).data));
+  assert.doesNotMatch(world.context.webLayoutWorkbook_(), /Đã ẩn|Đã bỏ|Đã chuyển/, 'a second run changes nothing');
+  assert.equal(JSON.stringify(['WEB_GIFT_LIMITS', 'WEB_GIFT_VARIANTS', 'WEB_RESULTS', 'CAU_HINH'].map((n) => sheet(n).data)), before);
+  assert.equal(sheet('CU_MA_QUAY').hidden, true);
 });
 
 check('staff menu functions refuse to run outside the Sheet UI (public web app)', () => {

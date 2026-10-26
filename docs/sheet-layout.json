@@ -1,0 +1,311 @@
+{
+  "dashboard": [
+    [
+      "HUSSIO · LUCKY SPIN WEBSITE",
+      "Tự cập nhật — không nhập vào tab này",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "CHƯƠNG TRÌNH",
+      "",
+      "",
+      "HƯỚNG DẪN",
+      "VIỆC CẦN LÀM"
+    ],
+    [
+      "Trạng thái (STATUS)",
+      "=IFERROR(VLOOKUP(\"STATUS\",CAU_HINH!A:B,2,FALSE),\"\")",
+      "",
+      "1. Quỹ quà",
+      "WEB_GIFT_LIMITS: mỗi quà 1 dòng, thứ tự dòng = thứ tự ô trên vòng quay. Nhập Hạn mức (tổng số chiếc được phát) rồi tick Bật. Trọng số = tỷ lệ tương đối (trống = 1, 0 = không bốc)."
+    ],
+    [
+      "Nhận đơn đặt từ (STARTS_AT)",
+      "=IF(IFERROR(VLOOKUP(\"STARTS_AT\",CAU_HINH!A:B,2,FALSE),\"\")=\"\",\"⚠ Chưa điền\",IFERROR(VLOOKUP(\"STARTS_AT\",CAU_HINH!A:B,2,FALSE),\"\"))",
+      "",
+      "2. Size / SKU",
+      "WEB_GIFT_VARIANTS: mỗi SKU/size/màu 1 dòng. Nhóm: top (áo), pants (quần), any (vớ, mũ, thắt lưng, voucher, hộp — không cần size). Nhập Số lượng dành cho quà rồi tick Bật. Có thể dùng HUSSIO → Nạp size từ file tồn kho."
+    ],
+    [
+      "Nhận đơn đặt đến (ENDS_AT)",
+      "=IF(IFERROR(VLOOKUP(\"ENDS_AT\",CAU_HINH!A:B,2,FALSE),\"\")=\"\",\"⚠ Chưa điền\",IFERROR(VLOOKUP(\"ENDS_AT\",CAU_HINH!A:B,2,FALSE),\"\"))",
+      "",
+      "3. Kiểm tra tồn",
+      "TON_QUA tự tính quà còn lại và báo quà nào đã bật nhưng chưa có size. Không sửa tay tab này."
+    ],
+    [
+      "Hạn cuối được quay (SPIN_UNTIL)",
+      "=IF(IFERROR(VLOOKUP(\"SPIN_UNTIL\",CAU_HINH!A:B,2,FALSE),\"\")=\"\",\"ENDS_AT + 3 ngày\",IFERROR(VLOOKUP(\"SPIN_UNTIL\",CAU_HINH!A:B,2,FALSE),\"\"))",
+      "",
+      "4. Thời gian",
+      "CAU_HINH: STARTS_AT / ENDS_AT là khoảng thời gian ĐẶT ĐƠN. SPIN_UNTIL trống = ENDS_AT + 3 ngày cho đơn đặt sát giờ."
+    ],
+    [
+      "Tiền hàng tối thiểu",
+      "=IFERROR(VLOOKUP(\"MIN_ORDER\",CAU_HINH!A:B,2,FALSE),\"\")",
+      "",
+      "5. Shopify",
+      "HUSSIO → Cài đặt kết nối Shopify, rồi HUSSIO → Kiểm tra kết nối Shopify (cần read_orders và quyền đọc SĐT/email khách)."
+    ],
+    [
+      "Web app (/exec)",
+      "=IF(IFERROR(VLOOKUP(\"WEB_APP_URL\",CAU_HINH!A:B,2,FALSE),\"\")=\"\",\"⚠ Chưa triển khai\",IFERROR(VLOOKUP(\"WEB_APP_URL\",CAU_HINH!A:B,2,FALSE),\"\"))",
+      "",
+      "6. Web app",
+      "Apps Script → Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone). Dán link /exec vào CAU_HINH → WEB_APP_URL và vào biến NEXT_PUBLIC_SHEET_API_URL của quay.hussio-vn.com."
+    ],
+    [
+      "",
+      "",
+      "",
+      "7. Thử rồi mở",
+      "Đặt 1 đơn web thật ≥ 1.300.000đ, quay thử, kiểm tra dòng mới ở WEB_RESULTS, rồi HUSSIO → Huỷ quà cho đơn thử. Cuối cùng đổi STATUS = OPEN."
+    ],
+    [
+      "KẾT QUẢ QUAY",
+      "",
+      "",
+      "8. Hằng ngày",
+      "WEB_RESULTS: mỗi đơn 1 dòng. CHO_DONG_GOI → kho đóng quà vào đơn (lọc tag LUCKY-SPIN trên Shopify) rồi HUSSIO → Đánh dấu đã đóng gói. GUI_RIENG → đơn đã giao, CS gửi quà riêng. Đơn huỷ/hoàn → HUSSIO → Huỷ quà (quà về lại quỹ)."
+    ],
+    [
+      "Tổng đơn đã quay",
+      "=COUNTA(WEB_RESULTS!B2:B)",
+      "",
+      "Lưu ý",
+      "Không sửa tay cột Quà/Size/SKU/JSON ở WEB_RESULTS. Không chia sẻ Sheet cho khách. Các tab CU_… (mã quay HUS-… cũ) đã ẩn và không còn dùng."
+    ],
+    [
+      "Quay hôm nay",
+      "=COUNTIFS(WEB_RESULTS!A2:A,\">=\"&TODAY())",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Chờ đóng gói gửi kèm (CHO_DONG_GOI)",
+      "=COUNTIF(WEB_RESULTS!I2:I,\"CHO_DONG_GOI\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "CS gửi quà riêng (GUI_RIENG)",
+      "=COUNTIF(WEB_RESULTS!I2:I,\"GUI_RIENG\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Đã đóng gói (DA_DONG_GOI)",
+      "=COUNTIF(WEB_RESULTS!I2:I,\"DA_DONG_GOI\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Đã huỷ quà (HUY)",
+      "=COUNTIF(WEB_RESULTS!I2:I,\"HUY\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Ghi lên Shopify bị lỗi",
+      "=COUNTIF(WEB_RESULTS!J2:J,\"LỖI*\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "QUỸ QUÀ (chi tiết ở TON_QUA)",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Quà đang bật",
+      "=COUNTIF(TON_QUA!C2:C,\"BẬT\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Quà đang quay được",
+      "=COUNTIF(TON_QUA!H2:H,\"Đang quay được\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Quà bật nhưng chưa có size còn hàng",
+      "=COUNTIF(TON_QUA!H2:H,\"Chưa có size còn hàng\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Quà còn lại (theo hạn mức)",
+      "=SUMIFS(TON_QUA!F2:F,TON_QUA!H2:H,\"Đang quay được\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "SẴN SÀNG MỞ CHƯƠNG TRÌNH?",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Đã điền STARTS_AT và ENDS_AT",
+      "=IF(AND(IFERROR(VLOOKUP(\"STARTS_AT\",CAU_HINH!A:B,2,FALSE),\"\")<>\"\",IFERROR(VLOOKUP(\"ENDS_AT\",CAU_HINH!A:B,2,FALSE),\"\")<>\"\"),\"✅ Xong\",\"⚠ Chưa\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Có quà đang quay được",
+      "=IF(COUNTIF(TON_QUA!H2:H,\"Đang quay được\")>0,\"✅ Xong\",\"⚠ Chưa\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Đã triển khai web app",
+      "=IF(IFERROR(VLOOKUP(\"WEB_APP_URL\",CAU_HINH!A:B,2,FALSE),\"\")<>\"\",\"✅ Xong\",\"⚠ Chưa\")",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Kết nối Shopify",
+      "HUSSIO → Kiểm tra kết nối Shopify",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Đang mở cho khách quay",
+      "=IF(IFERROR(VLOOKUP(\"STATUS\",CAU_HINH!A:B,2,FALSE),\"\")=\"OPEN\",\"✅ OPEN\",\"⏸ \"&IFERROR(VLOOKUP(\"STATUS\",CAU_HINH!A:B,2,FALSE),\"\")&\" — đổi STATUS = OPEN khi sẵn sàng\")",
+      "",
+      "",
+      ""
+    ]
+  ],
+  "stock": [
+    [
+      "ID quà",
+      "Tên quà",
+      "Bật",
+      "Hạn mức",
+      "Đã trúng",
+      "Còn lại (hạn mức)",
+      "Chiếc theo size còn lại",
+      "Tình trạng",
+      "",
+      "SKU",
+      "ID quà",
+      "Size",
+      "Màu",
+      "Số lượng (đang bật)",
+      "Đã trúng",
+      "Còn lại"
+    ],
+    [
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,WEB_GIFT_LIMITS!A2:A))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,WEB_GIFT_LIMITS!B2:B))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,IF(WEB_GIFT_LIMITS!E2:E=TRUE,\"BẬT\",\"tắt\")))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,IFERROR(WEB_GIFT_LIMITS!C2:C*1,0)))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,COUNTIFS(WEB_RESULTS!L2:L,A2:A,WEB_RESULTS!I2:I,\"<>HUY\")))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,IF(D2:D>E2:E,D2:D-E2:E,0)))",
+      "=MAP(A2:A,LAMBDA(giftKey,IF(giftKey=\"\",,SUMIF(K2:K,giftKey,P2:P))))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_LIMITS!A2:A=\"\",,IF(C2:C<>\"BẬT\",\"Đang tắt\",IF((WEB_GIFT_LIMITS!F2:F<>\"\")*(WEB_GIFT_LIMITS!F2:F=0),\"Trọng số 0\",IF(F2:F=0,\"Hết hạn mức\",IF(G2:G=0,\"Chưa có size còn hàng\",\"Đang quay được\"))))))",
+      "",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,WEB_GIFT_VARIANTS!A2:A))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,WEB_GIFT_VARIANTS!B2:B))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,WEB_GIFT_VARIANTS!D2:D))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,WEB_GIFT_VARIANTS!E2:E))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,IF(WEB_GIFT_VARIANTS!G2:G=TRUE,IFERROR(WEB_GIFT_VARIANTS!F2:F*1,0),0)))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,COUNTIFS(WEB_RESULTS!H2:H,J2:J,WEB_RESULTS!I2:I,\"<>HUY\")))",
+      "=ARRAYFORMULA(IF(WEB_GIFT_VARIANTS!A2:A=\"\",,IF(N2:N>O2:O,N2:N-O2:O,0)))"
+    ]
+  ],
+  "headers": {
+    "results": [
+      "Ngày quay",
+      "Mã đơn",
+      "SĐT/email khách nhập",
+      "Tiền hàng (sau giảm)",
+      "Quà trúng",
+      "Size",
+      "Màu",
+      "SKU quà",
+      "Trạng thái quà",
+      "Ghi lên Shopify",
+      "Shopify ID",
+      "ID quà",
+      "Kết quả JSON",
+      "Ghi chú CS"
+    ],
+    "limits": [
+      "ID quà",
+      "Tên quà",
+      "Hạn mức",
+      "Ghi chú",
+      "Bật",
+      "Trọng số"
+    ],
+    "variants": [
+      "SKU",
+      "ID quà",
+      "Nhóm top/pants/any",
+      "Size",
+      "Màu",
+      "Số lượng dành cho quà",
+      "Bật"
+    ]
+  },
+  "settings": [
+    [
+      "SPIN_UNTIL",
+      "",
+      "Hạn cuối được quay (ISO). Để trống = ENDS_AT + 3 ngày cho đơn đặt sát giờ kết thúc"
+    ],
+    [
+      "ALLOW_SHIPPED_ORDERS",
+      "TRUE",
+      "TRUE: đơn đã giao vận chuyển vẫn quay, quà ghi GUI_RIENG để CS gửi riêng. FALSE: chặn"
+    ],
+    [
+      "ZALO_URL",
+      "",
+      "Link Zalo OA HUSSIO, ví dụ https://zalo.me/<id>. Hiện nút \"Nhắn Zalo\" sau khi quay"
+    ]
+  ]
+}

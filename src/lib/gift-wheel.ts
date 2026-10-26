@@ -4,7 +4,11 @@ import type { PrizeType } from "@/generated/prisma/enums";
 import type { CatalogGift, WheelSegmentView } from "@/lib/lucky-types";
 import { SHEET_SEGMENTS } from "@/lib/sheet-campaign";
 
-export type SizeChoice = { top: string; pants: string };
+/** Sizes the customer accepts per group; any of them may be drawn. */
+export type SizeChoice = { top: string[]; pants: string[] };
+
+/** More sizes = more gifts in the draw; the server caps it at the same number. */
+export const MAX_SIZES = 3;
 
 /** Snapshot of the Sheet (46 garments + accessories/vouchers) shown until the live catalog loads, and in local preview. */
 export const FALLBACK_GIFTS: CatalogGift[] = [
@@ -53,19 +57,30 @@ export function wheelLabel(name: string): { label: string; caption: string } {
   return { label: name.toUpperCase(), caption: "QUÀ TẶNG" };
 }
 
-export function fitsSizes(gift: CatalogGift, sizes: SizeChoice): boolean {
+/**
+ * A garment fits when it has stock in one of the chosen sizes of its group.
+ * `sizesKnown` is false for the offline snapshot, where most garments carry no
+ * size data yet: those stay lit instead of looking sold out.
+ */
+export function fitsSizes(gift: CatalogGift, sizes: SizeChoice, sizesKnown = true): boolean {
   if (gift.group === "any") return true;
   const chosen = gift.group === "pants" ? sizes.pants : sizes.top;
-  return !!chosen && gift.sizes.includes(chosen);
+  if (!chosen.length) return false;
+  if (!sizesKnown && !gift.sizes.length) return true;
+  return chosen.some((size) => gift.sizes.includes(size));
+}
+
+export function hasSizes(sizes: SizeChoice): boolean {
+  return sizes.top.length > 0 || sizes.pants.length > 0;
 }
 
 /** Before any size is picked every gift in stock is lit; afterwards only the ones that fit. */
-export function toSegments(gifts: CatalogGift[], sizes: SizeChoice): WheelSegmentView[] {
-  const picked = !!(sizes.top || sizes.pants);
+export function toSegments(gifts: CatalogGift[], sizes: SizeChoice, sizesKnown = true): WheelSegmentView[] {
+  const picked = hasSizes(sizes);
   return gifts.map((gift) => {
     const { label, caption } = wheelLabel(gift.name);
     const type: PrizeType = /^giảm/i.test(gift.name) ? "VOUCHER" : "PRODUCT_POOL";
-    return { id: gift.id, name: gift.name, label, caption, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes)) };
+    return { id: gift.id, name: gift.name, label, caption, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes, sizesKnown)) };
   });
 }
 

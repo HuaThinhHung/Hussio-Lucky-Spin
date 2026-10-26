@@ -32,6 +32,7 @@ const WEB_REJECTED_PAYMENTS_ = ['VOIDED', 'REFUNDED', 'EXPIRED'];
 const WEB_PACKABLE_ = ['UNFULFILLED', 'ON_HOLD', 'SCHEDULED', 'OPEN', 'PENDING_FULFILLMENT'];
 const WEB_SPIN_GRACE_DAYS_ = 3;
 const WEB_MAX_FAILURES_ = 5;
+const WEB_MAX_SIZES_ = 3;
 const SHOPIFY_API_VERSION_ = '2026-10';
 
 // ---------------------------------------------------------------------------
@@ -43,7 +44,7 @@ function customerCatalog() {
   return webGuarded_(webCatalog_);
 }
 
-/** action: 'validate' | 'spin'; body: {code, contact, top, pants}. */
+/** action: 'validate' | 'spin'; body: {code, contact, top, pants} where top/pants list up to 3 sizes ("M,L,XL"). */
 function customerOrderRequest(action, body) {
   return webGuarded_(function () { return webOrderRequest_(action, body || {}); });
 }
@@ -93,7 +94,7 @@ function webOrderRequest_(action, body) {
   if (action !== 'validate' && action !== 'spin') return error_('VALIDATION', 'Thao tác không hợp lệ.');
   const orderName = webOrderName_(body.code), contact = String(body.contact || '').trim();
   if (!orderName || !contact || contact.length > 160) return webInvalid_();
-  const sizes = {top: webSize_(body.top), pants: webSize_(body.pants)};
+  const sizes = {top: webSizes_(body.top), pants: webSizes_(body.pants)};
   const cache = CacheService.getScriptCache(), failKey = 'web:fail:' + orderName;
   if (Number(cache.get(failKey) || 0) >= WEB_MAX_FAILURES_)
     return error_('LOCKED', 'Bạn đã nhập sai nhiều lần. Vui lòng thử lại sau 30 phút hoặc nhắn HUSSIO để được hỗ trợ.');
@@ -130,7 +131,7 @@ function webOrderRequest_(action, body) {
     const anySize = webEligible_(gifts, null), forSizes = webEligible_(gifts, sizes);
     if (!anySize.length) return error_('NO_PRIZES', 'Quỹ quà đã hết. Vui lòng nhắn HUSSIO để được hỗ trợ.');
     if (action === 'validate') {
-      if ((sizes.top || sizes.pants) && !forSizes.length) return webSizeGone_();
+      if ((sizes.top.length || sizes.pants.length) && !forSizes.length) return webSizeGone_();
       return {ok: true, state: 'READY', customerName: 'Bạn', spinsAvailable: 1, expiresAt: new Date(campaign.until).toISOString(), askNameConsent: false};
     }
     if (!forSizes.length) return webSizeGone_();
@@ -233,13 +234,13 @@ function webPool_(book, ledger) {
   return gifts;
 }
 
-/** Gifts with at least one variant in stock that fits the sizes (sizes = null: any size). */
+/** Gifts with at least one variant in stock in one of the chosen sizes (sizes = null: any size). */
 function webEligible_(gifts, sizes) {
   return gifts.map(function (gift) {
     const variants = gift.remaining <= 0 ? [] : gift.variants.filter(function (v) {
       if (v.remaining <= 0) return false;
       if (!sizes || v.group === 'any') return true;
-      return !!v.size && v.size === (v.group === 'pants' ? sizes.pants : sizes.top);
+      return !!v.size && (v.group === 'pants' ? sizes.pants : sizes.top).indexOf(v.size) >= 0;
     });
     return {gift: gift, variants: variants};
   }).filter(function (entry) { return entry.variants.length > 0; });
@@ -384,10 +385,15 @@ function webSameContact_(saved, typed) {
   return !!orderPhone_(a) && orderPhone_(a) === orderPhone_(b);
 }
 function webSize_(value) { return String(value == null ? '' : value).trim().toUpperCase().slice(0, 12); }
+/** The customer may accept up to WEB_MAX_SIZES_ sizes per group, sent as "M,L" (or an array). */
+function webSizes_(value) {
+  const list = Array.isArray(value) ? value : String(value == null ? '' : value).split(',');
+  return webUnique_(list.map(webSize_).filter(Boolean)).slice(0, WEB_MAX_SIZES_);
+}
 function webUnique_(values) { return values.filter(function (v, i) { return values.indexOf(v) === i; }); }
 function webMoney_(amount) { return String(amount).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ'; }
 function webSafeUrl_(value) { const url = String(value || '').trim(); return /^https:\/\/[^\s"'<>]+$/.test(url) ? url : ''; }
 /** Forces plain text so "0901…" keeps its 0 and "329-11" is not read as a date or formula. */
 function webText_(value) { const text = String(value == null ? '' : value); return text ? "'" + text : ''; }
 function webInvalid_() { return error_('INVALID_CODE', 'Không tìm thấy đơn phù hợp. Kiểm tra lại mã đơn và SĐT/email đã dùng khi đặt hàng.'); }
-function webSizeGone_() { return error_('SIZE_UNAVAILABLE', 'Size bạn chọn vừa hết quà. Vui lòng chọn size khác.'); }
+function webSizeGone_() { return error_('SIZE_UNAVAILABLE', 'Size bạn chọn vừa hết quà. Vui lòng chọn thêm hoặc đổi size khác.'); }

@@ -9,7 +9,7 @@ function menuLookupOrder() { webStaff_(webLookupOrder_); }
 function menuMarkPacked() { webStaff_(function (ui) { webSetStatus_(ui, 'DA_DONG_GOI'); }); }
 function menuCancelGift() { webStaff_(function (ui) { webSetStatus_(ui, 'HUY'); }); }
 function menuImportSizes() { webStaff_(webImportSizes_); }
-function menuSetupWebsite() { webStaff_(function (ui) { ui.alert(setupWebsiteOrders_()); }); }
+function menuSetupWebsite() { webStaff_(function (ui) { ui.alert(setupWebsiteOrders_() + '\n\n' + webLayoutWorkbook_()); }); }
 function menuSetupShopify() { webStaff_(webSetupShopify_); }
 function menuTestShopify() { webStaff_(function (ui) { ui.alert(webTestShopify_()); }); }
 
@@ -76,6 +76,243 @@ function setupWebsiteOrders_() {
   CacheService.getScriptCache().remove('web:catalog');
   return notes.length ? notes.join('\n') : 'Các bảng website đã đầy đủ, không cần thay đổi.';
 }
+
+// ---------------------------------------------------------------------------
+// Workbook layout: one tab per job, in working order. TONG_QUAN and TON_QUA are
+// formulas only (rebuilt on every run); the data tabs keep their rows untouched.
+
+// Tabs of the old lucky-code flow (customer typed a HUS-… code). Hidden and renamed, never deleted.
+const WEB_LEGACY_TABS_ = [['MA_QUAY', 'CU_MA_QUAY'], ['QUA_TANG', 'CU_QUA_TANG'], ['HUONG_DAN', 'CU_HUONG_DAN']];
+const WEB_DASHBOARD_TAB_ = 'TONG_QUAN';
+const WEB_STOCK_TAB_ = 'TON_QUA';
+const WEB_TABS_ = [[WEB_DASHBOARD_TAB_, '#111111'], ['CAU_HINH', '#9e9e9e'], [WEB_SHEETS_.limits, '#d92d32'],
+  [WEB_SHEETS_.variants, '#d92d32'], [WEB_STOCK_TAB_, '#f4b400'], [WEB_SHEETS_.results, '#0f9d58']];
+const WEB_CONFIG_HELP_ = {
+  STATUS: 'OPEN = cho quay · PAUSED = tạm dừng. Giữ PAUSED đến khi quay thử xong',
+  STARTS_AT: 'Đơn phải được ĐẶT từ lúc này, ví dụ 2026-11-27T00:00:00+07:00',
+  ENDS_AT: 'Đơn phải được ĐẶT trước lúc này (bắt buộc), ví dụ 2026-11-30T23:59:59+07:00',
+  MIN_ORDER: 'Tiền hàng sau giảm tối thiểu để được quay (VND)',
+  WEB_APP_URL: 'Link /exec của web app Apps Script; dán vào NEXT_PUBLIC_SHEET_API_URL của quay.hussio-vn.com',
+};
+const WEB_GUIDE_ = [
+  ['1. Quỹ quà', 'WEB_GIFT_LIMITS: mỗi quà 1 dòng, thứ tự dòng = thứ tự ô trên vòng quay. Nhập Hạn mức (tổng số chiếc được phát) rồi tick Bật. Trọng số = tỷ lệ tương đối (trống = 1, 0 = không bốc).'],
+  ['2. Size / SKU', 'WEB_GIFT_VARIANTS: mỗi SKU/size/màu 1 dòng. Nhóm: top (áo), pants (quần), any (vớ, mũ, thắt lưng, voucher, hộp — không cần size). Nhập Số lượng dành cho quà rồi tick Bật. Có thể dùng HUSSIO → Nạp size từ file tồn kho.'],
+  ['3. Kiểm tra tồn', 'TON_QUA tự tính quà còn lại và báo quà nào đã bật nhưng chưa có size. Không sửa tay tab này.'],
+  ['4. Thời gian', 'CAU_HINH: STARTS_AT / ENDS_AT là khoảng thời gian ĐẶT ĐƠN. SPIN_UNTIL trống = ENDS_AT + 3 ngày cho đơn đặt sát giờ.'],
+  ['5. Shopify', 'HUSSIO → Cài đặt kết nối Shopify, rồi HUSSIO → Kiểm tra kết nối Shopify (cần read_orders và quyền đọc SĐT/email khách).'],
+  ['6. Web app', 'Apps Script → Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone). Dán link /exec vào CAU_HINH → WEB_APP_URL và vào biến NEXT_PUBLIC_SHEET_API_URL của quay.hussio-vn.com.'],
+  ['7. Thử rồi mở', 'Đặt 1 đơn web thật ≥ 1.300.000đ, quay thử, kiểm tra dòng mới ở WEB_RESULTS, rồi HUSSIO → Huỷ quà cho đơn thử. Cuối cùng đổi STATUS = OPEN.'],
+  ['8. Hằng ngày', 'WEB_RESULTS: mỗi đơn 1 dòng. CHO_DONG_GOI → kho đóng quà vào đơn (lọc tag LUCKY-SPIN trên Shopify) rồi HUSSIO → Đánh dấu đã đóng gói. GUI_RIENG → đơn đã giao, CS gửi quà riêng. Đơn huỷ/hoàn → HUSSIO → Huỷ quà (quà về lại quỹ).'],
+  ['Lưu ý', 'Không sửa tay cột Quà/Size/SKU/JSON ở WEB_RESULTS. Không chia sẻ Sheet cho khách. Các tab CU_… (mã quay HUS-… cũ) đã ẩn và không còn dùng.'],
+];
+
+/** Archives the old tabs, rebuilds TONG_QUAN + TON_QUA and orders the tabs. Never deletes gift or result rows. */
+function webLayoutWorkbook_() {
+  const book = book_(), notes = [];
+  const limits = webSheet_(book, 'limits'), variants = webSheet_(book, 'variants'), results = webSheet_(book, 'results');
+
+  const configSheet = book.getSheetByName('CAU_HINH'), help = Object.assign({}, WEB_CONFIG_HELP_);
+  WEB_SETTINGS_.forEach(function (s) { help[s[0]] = s[2]; });
+  const settings = rows_(configSheet, 3);
+  for (let i = settings.length - 1; i >= 0; i--) {
+    const key = String(settings[i][0]).trim();
+    // DEPLOYMENT was a hand-kept note that nothing reads; it kept showing NOT_DEPLOYED.
+    if (key === 'DEPLOYMENT') { configSheet.deleteRow(i + 2); notes.push('Đã bỏ dòng DEPLOYMENT (không dùng) khỏi CAU_HINH.'); continue; }
+    if (help[key] && settings[i][2] !== help[key]) configSheet.getRange(i + 2, 3).setValue(help[key]);
+  }
+  const statusRow = rows_(configSheet, 1).findIndex(function (r) { return String(r[0]).trim() === 'STATUS'; });
+  if (statusRow >= 0) configSheet.getRange(statusRow + 2, 2).setDataValidation(webListRule_(['OPEN', 'PAUSED'], false));
+
+  // A typed "TRUE" is text, which the pool ignores (it needs a real checkbox value).
+  webCheckboxes_(limits, 5, notes);
+  webCheckboxes_(variants, 7, notes);
+  webValidate_(limits, 6, SpreadsheetApp.newDataValidation().requireNumberGreaterThanOrEqualTo(0)
+    .setHelpText('Trọng số: để trống = 1, 0 = không bốc quà này').build());
+  webValidate_(variants, 3, webListRule_(['top', 'pants', 'any'], false));
+  [limits, variants, results].forEach(function (sheet) { sheet.getRange('1:1').setFontWeight('bold'); });
+
+  const stock = book.getSheetByName(WEB_STOCK_TAB_) || book.insertSheet(WEB_STOCK_TAB_);
+  webResetTab_(stock);
+  const stockRows = webStockRows_();
+  stock.getRange(1, 1, stockRows.length, stockRows[0].length).setValues(stockRows);
+  stock.getRange('1:1').setFontWeight('bold').setBackground('#111111').setFontColor('#ffffff');
+  stock.getRange('A1').setNote('Tự tính từ WEB_GIFT_LIMITS, WEB_GIFT_VARIANTS và WEB_RESULTS (đơn HUY trả quà về quỹ). Không nhập vào tab này.');
+  stock.setFrozenRows(1);
+  stock.setColumnWidth(2, 260);
+  stock.setColumnWidth(8, 180);
+  stock.setColumnWidth(9, 24);
+  stock.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Đang quay được').setBackground('#d9f2e3').setRanges([stock.getRange('H2:H')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Chưa có size còn hàng').setBackground('#fde2e1').setRanges([stock.getRange('H2:H')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Hết hạn mức').setBackground('#fff1cc').setRanges([stock.getRange('H2:H')]).build(),
+  ]);
+  webWarnOnEdit_(stock, 'TON_QUA tự tính — sửa ở WEB_GIFT_LIMITS / WEB_GIFT_VARIANTS');
+
+  const dashboard = book.getSheetByName(WEB_DASHBOARD_TAB_) || book.insertSheet(WEB_DASHBOARD_TAB_);
+  webResetTab_(dashboard);
+  const board = webDashboardRows_();
+  dashboard.getRange(1, 1, board.length, 5).setValues(board);
+  dashboard.getRange('A1').setFontSize(14).setFontWeight('bold');
+  dashboard.getRange('B1').setFontColor('#777777').setFontStyle('italic');
+  board.forEach(function (row, i) {
+    if (WEB_DASHBOARD_SECTIONS_.indexOf(row[0]) >= 0) dashboard.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#111111').setFontColor('#ffffff');
+  });
+  dashboard.getRange(3, 4, 1, 2).setFontWeight('bold').setBackground('#111111').setFontColor('#ffffff');
+  dashboard.getRange(4, 4, WEB_GUIDE_.length, 1).setFontWeight('bold');
+  dashboard.getRange(4, 5, WEB_GUIDE_.length, 1).setWrap(true);
+  dashboard.getRange(1, 1, board.length, 5).setVerticalAlignment('top');
+  dashboard.getRange('B8').setNumberFormat('#,##0"đ"');
+  [300, 250, 24, 120, 620].forEach(function (width, i) { dashboard.setColumnWidth(i + 1, width); });
+  dashboard.setFrozenRows(1);
+  webWarnOnEdit_(dashboard, 'TONG_QUAN tự tính — sửa ở CAU_HINH và các tab WEB_…');
+  notes.push('Đã làm mới TONG_QUAN (bảng theo dõi + hướng dẫn) và TON_QUA (tồn quà theo quà / SKU).');
+
+  WEB_TABS_.forEach(function (tab, i) {
+    const sheet = book.getSheetByName(tab[0]);
+    if (!sheet) return;
+    book.setActiveSheet(sheet);
+    book.moveActiveSheet(i + 1);
+    sheet.setTabColor(tab[1]);
+  });
+  book.setActiveSheet(dashboard);
+
+  // Hidden last: activating a hidden sheet would show it again.
+  WEB_LEGACY_TABS_.forEach(function (names) {
+    const sheet = book.getSheetByName(names[0]) || book.getSheetByName(names[1]);
+    if (!sheet) return;
+    if (sheet.getName() === names[0] && !book.getSheetByName(names[1])) sheet.setName(names[1]);
+    if (!sheet.isSheetHidden()) {
+      sheet.hideSheet();
+      notes.push('Đã ẩn tab cũ ' + sheet.getName() + ' (hệ thống mã quay HUS-… cũ, dữ liệu vẫn giữ nguyên).');
+    }
+  });
+  return notes.join('\n');
+}
+
+const WEB_DASHBOARD_SECTIONS_ = ['CHƯƠNG TRÌNH', 'KẾT QUẢ QUAY', 'QUỸ QUÀ (chi tiết ở TON_QUA)', 'SẴN SÀNG MỞ CHƯƠNG TRÌNH?'];
+
+/** TONG_QUAN: live counts on the left (A:B), the step-by-step guide on the right (D:E). */
+function webDashboardRows_() {
+  const R = WEB_SHEETS_.results, T = WEB_STOCK_TAB_;
+  const cfg = function (key) { return 'IFERROR(VLOOKUP("' + key + '",CAU_HINH!A:B,2,FALSE),"")'; };
+  const orRequired = function (key) { return '=IF(' + cfg(key) + '="","⚠ Chưa điền",' + cfg(key) + ')'; };
+  const results = function (index) { return R + '!' + webColumn_(index) + '2:' + webColumn_(index); };
+  const status = function (code) { return '=COUNTIF(' + results(WR_.status) + ',"' + code + '")'; };
+  const playable = 'COUNTIF(' + T + '!H2:H,"Đang quay được")';
+  const left = [
+    ['HUSSIO · LUCKY SPIN WEBSITE', 'Tự cập nhật — không nhập vào tab này'],
+    ['', ''],
+    [WEB_DASHBOARD_SECTIONS_[0], ''],
+    ['Trạng thái (STATUS)', '=' + cfg('STATUS')],
+    ['Nhận đơn đặt từ (STARTS_AT)', orRequired('STARTS_AT')],
+    ['Nhận đơn đặt đến (ENDS_AT)', orRequired('ENDS_AT')],
+    ['Hạn cuối được quay (SPIN_UNTIL)', '=IF(' + cfg('SPIN_UNTIL') + '="","ENDS_AT + 3 ngày",' + cfg('SPIN_UNTIL') + ')'],
+    ['Tiền hàng tối thiểu', '=' + cfg('MIN_ORDER')],
+    ['Web app (/exec)', '=IF(' + cfg('WEB_APP_URL') + '="","⚠ Chưa triển khai",' + cfg('WEB_APP_URL') + ')'],
+    ['', ''],
+    [WEB_DASHBOARD_SECTIONS_[1], ''],
+    ['Tổng đơn đã quay', '=COUNTA(' + results(WR_.order) + ')'],
+    ['Quay hôm nay', '=COUNTIFS(' + results(WR_.date) + ',">="&TODAY())'],
+    ['Chờ đóng gói gửi kèm (CHO_DONG_GOI)', status('CHO_DONG_GOI')],
+    ['CS gửi quà riêng (GUI_RIENG)', status('GUI_RIENG')],
+    ['Đã đóng gói (DA_DONG_GOI)', status('DA_DONG_GOI')],
+    ['Đã huỷ quà (HUY)', status('HUY')],
+    ['Ghi lên Shopify bị lỗi', '=COUNTIF(' + results(WR_.shopify) + ',"LỖI*")'],
+    ['', ''],
+    [WEB_DASHBOARD_SECTIONS_[2], ''],
+    ['Quà đang bật', '=COUNTIF(' + T + '!C2:C,"BẬT")'],
+    ['Quà đang quay được', '=' + playable],
+    ['Quà bật nhưng chưa có size còn hàng', '=COUNTIF(' + T + '!H2:H,"Chưa có size còn hàng")'],
+    ['Quà còn lại (theo hạn mức)', '=SUMIFS(' + T + '!F2:F,' + T + '!H2:H,"Đang quay được")'],
+    ['', ''],
+    [WEB_DASHBOARD_SECTIONS_[3], ''],
+    ['Đã điền STARTS_AT và ENDS_AT', '=IF(AND(' + cfg('STARTS_AT') + '<>"",' + cfg('ENDS_AT') + '<>""),"✅ Xong","⚠ Chưa")'],
+    ['Có quà đang quay được', '=IF(' + playable + '>0,"✅ Xong","⚠ Chưa")'],
+    ['Đã triển khai web app', '=IF(' + cfg('WEB_APP_URL') + '<>"","✅ Xong","⚠ Chưa")'],
+    ['Kết nối Shopify', 'HUSSIO → Kiểm tra kết nối Shopify'],
+    ['Đang mở cho khách quay', '=IF(' + cfg('STATUS') + '="OPEN","✅ OPEN","⏸ "&' + cfg('STATUS') + '&" — đổi STATUS = OPEN khi sẵn sàng")'],
+  ];
+  const right = [['', ''], ['', ''], ['HƯỚNG DẪN', 'VIỆC CẦN LÀM']].concat(WEB_GUIDE_);
+  const rows = [];
+  for (let i = 0; i < Math.max(left.length, right.length); i++)
+    rows.push((left[i] || ['', '']).concat([''], right[i] || ['', '']));
+  return rows;
+}
+
+/** TON_QUA: per gift (A:H) and per SKU (J:P), used stock counted from WEB_RESULTS except HUY rows. */
+function webStockRows_() {
+  const L = WEB_SHEETS_.limits, V = WEB_SHEETS_.variants, R = WEB_SHEETS_.results;
+  const results = function (index) { return R + '!' + webColumn_(index) + '2:' + webColumn_(index); };
+  const used = function (column, keys) { return 'COUNTIFS(' + results(column) + ',' + keys + ',' + results(WR_.status) + ',"<>HUY")'; };
+  const fromLimits = function (body) { return '=ARRAYFORMULA(IF(' + L + '!A2:A="",,' + body + '))'; };
+  const fromVariants = function (body) { return '=ARRAYFORMULA(IF(' + V + '!A2:A="",,' + body + '))'; };
+  // MAP evaluates each gift independently; SUMIFS with an array criterion does
+  // not reliably spill per gift. P already deducts usage for each enabled SKU.
+  const sizeStock = 'MAP(A2:A,LAMBDA(giftKey,IF(giftKey="",,SUMIF(K2:K,giftKey,P2:P))))';
+  return [
+    ['ID quà', 'Tên quà', 'Bật', 'Hạn mức', 'Đã trúng', 'Còn lại (hạn mức)', 'Chiếc theo size còn lại', 'Tình trạng', '',
+      'SKU', 'ID quà', 'Size', 'Màu', 'Số lượng (đang bật)', 'Đã trúng', 'Còn lại'],
+    [
+      fromLimits(L + '!A2:A'),
+      fromLimits(L + '!B2:B'),
+      fromLimits('IF(' + L + '!E2:E=TRUE,"BẬT","tắt")'),
+      fromLimits('IFERROR(' + L + '!C2:C*1,0)'),
+      fromLimits(used(WR_.giftId, 'A2:A')),
+      fromLimits('IF(D2:D>E2:E,D2:D-E2:E,0)'),
+      '=' + sizeStock,
+      fromLimits('IF(C2:C<>"BẬT","Đang tắt",IF((' + L + '!F2:F<>"")*(' + L + '!F2:F=0),"Trọng số 0",IF(F2:F=0,"Hết hạn mức",IF(G2:G=0,"Chưa có size còn hàng","Đang quay được"))))'),
+      '',
+      fromVariants(V + '!A2:A'),
+      fromVariants(V + '!B2:B'),
+      fromVariants(V + '!D2:D'),
+      fromVariants(V + '!E2:E'),
+      fromVariants('IF(' + V + '!G2:G=TRUE,IFERROR(' + V + '!F2:F*1,0),0)'),
+      fromVariants(used(WR_.sku, 'J2:J')),
+      fromVariants('IF(N2:N>O2:O,N2:N-O2:O,0)'),
+    ],
+  ];
+}
+
+function webResetTab_(sheet) {
+  const all = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
+  all.breakApart();
+  sheet.clear();
+  all.clearDataValidations();
+  all.clearNote();
+}
+
+/** Turns typed "TRUE"/"FALSE" into real checkbox values and shows the column as checkboxes (data rows only). */
+function webCheckboxes_(sheet, column, notes) {
+  if (sheet.getLastRow() < 2) return;
+  const range = sheet.getRange(2, column, sheet.getLastRow() - 1, 1), values = range.getValues();
+  let fixed = 0;
+  const cleaned = values.map(function (r) {
+    const text = typeof r[0] === 'string' ? r[0].trim().toUpperCase() : null;
+    if (text === 'TRUE' || text === 'FALSE') { fixed++; return [text === 'TRUE']; }
+    return [r[0]];
+  });
+  if (fixed) {
+    range.setValues(cleaned);
+    notes.push('Đã chuyển ' + fixed + ' ô "TRUE/FALSE" dạng chữ thành ô tick ở ' + sheet.getName() + '.');
+  }
+  range.setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+}
+
+/** Validation on existing data rows only: an empty validated row would move getLastRow and the next append. */
+function webValidate_(sheet, column, rule) {
+  if (sheet.getLastRow() >= 2) sheet.getRange(2, column, sheet.getLastRow() - 1, 1).setDataValidation(rule);
+}
+
+function webListRule_(values, allowInvalid) {
+  return SpreadsheetApp.newDataValidation().requireValueInList(values, true).setAllowInvalid(allowInvalid).build();
+}
+
+function webWarnOnEdit_(sheet, description) {
+  if (!sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).length) sheet.protect().setDescription(description).setWarningOnly(true);
+}
+
+/** 0-based column index → letter (A–Z is enough for these tabs). */
+function webColumn_(index) { return String.fromCharCode(65 + index); }
 
 /** Copies SKU/size/colour rows for gifts whose name appears in the inventory file. New rows stay off for review. */
 function webImportSizes_(ui) {
