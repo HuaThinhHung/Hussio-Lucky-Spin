@@ -1,14 +1,19 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { compile } from '@tailwindcss/node';
 import { Scanner } from '@tailwindcss/oxide';
 
 const root=process.cwd();
+const standalone=process.argv.includes('--standalone');
+const apiUrl=standalone ? (process.env.NEXT_PUBLIC_SHEET_API_URL || '').trim() : '';
+if(apiUrl && !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(apiUrl)) {
+  throw new Error('NEXT_PUBLIC_SHEET_API_URL must be a deployed Apps Script https://script.google.com/macros/s/.../exec URL.');
+}
 const logo=(await readFile('public/brand/hussio-logo.png')).toString('base64');
 const result=await build({entryPoints:['apps-script/client.tsx'],bundle:true,write:false,minify:true,
   // Inside Apps Script the page talks to the server through google.script.run, so no API URL.
-  format:'iife',target:'es2020',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_SHEET_API_URL':'""'},
+  format:'iife',target:'es2020',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"','process.env.NEXT_PUBLIC_SHEET_API_URL':JSON.stringify(apiUrl)},
   plugins:[{name:'inline-logo',setup(b){b.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'inline'}));
     b.onLoad({filter:/.*/,namespace:'inline'},()=>({loader:'jsx',resolveDir:root,contents:`import React from 'react';export default function Image({priority,...props}){return <img {...props} src="data:image/png;base64,${logo}" />}`}));}}]});
 const compiled=await compile(await readFile('src/app/globals.css','utf8'),{base:path.join(root,'src/app'),onDependency(){}});
@@ -24,5 +29,10 @@ for(let i=0;i<3;i++) {
 }
 const js=result.outputFiles[0].text.replaceAll('</script','<\\/script');
 const html=`<!doctype html><html lang="vi"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HUSSIO — Black Friday</title><style>${css}</style></head><body><div id="root"></div><script>${js}</script></body></html>`;
-await writeFile('apps-script/Index.html',html);
-console.log(`Built apps-script/Index.html (${Math.round(Buffer.byteLength(html)/1024)} KB); no external assets or server required.`);
+const output=standalone ? 'dist/index.html' : 'apps-script/Index.html';
+if(standalone) {
+  await mkdir('dist',{recursive:true});
+  await writeFile('dist/_headers','/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  X-Frame-Options: DENY\n');
+}
+await writeFile(output,html);
+console.log(`Built ${output} (${Math.round(Buffer.byteLength(html)/1024)} KB); ${standalone && !apiUrl ? 'PREVIEW ONLY: no live API configured' : 'ready for hosting'}.`);

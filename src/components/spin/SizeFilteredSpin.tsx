@@ -33,15 +33,15 @@ export default function SizeFilteredSpin({ shopUrl }: { shopUrl: string }) {
       setLoading(false);
       if (!response.ok) return;
       // Drop a picked size that has just sold out, so the next spin cannot fail on it again.
-      if (response.gifts.length) {
-        const topStock = sizeCounts(response.gifts, "top"), pantsStock = sizeCounts(response.gifts, "pants");
-        setTop((sizes) => keepInStock(sizes, topStock));
-        setPants((sizes) => keepInStock(sizes, pantsStock));
-      }
+      const topStock = sizeCounts(response.gifts, "top"), pantsStock = sizeCounts(response.gifts, "pants");
+      setTop((sizes) => keepInStock(sizes, topStock));
+      setPants((sizes) => keepInStock(sizes, pantsStock));
       setCatalog((current) => ({
-        gifts: response.gifts.length ? response.gifts : current.gifts,
+        // Keep the wheel outline when the live pool is empty, but never imply
+        // that the old preview gifts can still be won.
+        gifts: response.gifts.length ? response.gifts : current.gifts.map((gift) => ({ ...gift, available: false, sizes: [] })),
         open: response.open,
-        live: response.gifts.length > 0,
+        live: true,
         contactUrl: response.contactUrl,
       }));
     });

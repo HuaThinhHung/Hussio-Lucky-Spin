@@ -211,7 +211,7 @@ function webPool_(book, ledger) {
   rows_(webSheet_(book, 'limits'), 6).forEach(function (r) {
     const id = String(r[0]).trim(), limit = r[2] === '' ? NaN : Number(r[2]), weight = r[5] === '' ? 1 : Number(r[5]);
     // Only an enabled row with a real limit claims the ID, so a stray duplicate cannot hide it.
-    if (!id || r[4] !== true || !Number.isSafeInteger(limit) || limit < 0 || !(weight > 0) || byId[id]) return;
+    if (!id || r[4] !== true || !Number.isSafeInteger(limit) || limit < 0 || !Number.isFinite(weight) || !(weight > 0) || byId[id]) return;
     const gift = {id: id, name: String(r[1]).trim(), weight: weight, index: gifts.length,
       remaining: Math.max(0, limit - (usedGift[id] || 0)), variants: []};
     byId[id] = gift;

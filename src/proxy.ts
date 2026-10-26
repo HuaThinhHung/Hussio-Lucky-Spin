@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-// Legacy routes are retired; production is the Google-hosted web app.
+// Legacy database routes are retired. The standalone site calls Apps Script.
 export function proxy() {
-  return NextResponse.json({ ok: false, message: "Quản lý trong Google Sheet. Bản này chỉ xem trước giao diện." }, { status: 410 });
+  return NextResponse.json({ ok: false, message: "Đường dẫn cũ đã ngừng hoạt động. Quản lý chương trình trong Google Sheet." }, { status: 410 });
 }
 export const config = { matcher: ["/admin", "/admin/:path*", "/api/:path*"] };

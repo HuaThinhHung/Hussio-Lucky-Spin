@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:site": "node scripts/build-apps-script.mjs --standalone",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
