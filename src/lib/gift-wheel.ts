@@ -40,8 +40,8 @@ export function sortSizes(sizes: string[]): string[] {
 const CAPTIONS: [RegExp, string][] = [
   [/^ÁO KHOÁC /i, "ÁO KHOÁC"],
   [/^ÁO THUN /i, "ÁO THUN"],
-  [/^ÁO POLO /i, "POLO"],
-  [/^ÁO SƠ MI /i, "SƠ MI"],
+  [/^ÁO POLO /i, "ÁO POLO"],
+  [/^ÁO SƠ MI /i, "ÁO SƠ MI"],
   [/^QUẦN DÀI /i, "QUẦN DÀI"],
   [/^QUẦN /i, "QUẦN"],
   [/^TẶNG /i, "QUÀ TẶNG"],
@@ -80,7 +80,13 @@ export function toSegments(gifts: CatalogGift[], sizes: SizeChoice, sizesKnown =
   return gifts.map((gift) => {
     const { label, caption } = wheelLabel(gift.name);
     const type: PrizeType = /^giảm/i.test(gift.name) ? "VOUCHER" : "PRODUCT_POOL";
-    return { id: gift.id, name: gift.name, label, caption, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes, sizesKnown)) };
+    const chosen = gift.group === "pants" ? sizes.pants : sizes.top;
+    const applicable = sortSizes(gift.sizes.filter((size) => !chosen.length || chosen.includes(size)));
+    const sizeLabel = gift.group === "any" ? "Không cần size"
+      : !gift.sizes.length ? (sizesKnown ? "Hết size" : "Chưa có size")
+      : !applicable.length ? "Không khớp size"
+      : `Size ${applicable.join(" / ")}${sizesKnown ? "" : " · tham khảo"}`;
+    return { id: gift.id, name: gift.name, label, caption, sizeLabel, type, disabled: !gift.available || (picked && !fitsSizes(gift, sizes, sizesKnown)) };
   });
 }
 

@@ -124,37 +124,39 @@ export default function LuckyWheel({
             const center = segmentCenterAngle(index, count);
             return (
               <g key={segment.id}>
-                <title>{`${segment.name}${segment.disabled ? " — không phù hợp hoặc chưa xác nhận size" : " — có size phù hợp"}`}</title>
+                <title>{`${segment.name} — ${segment.sizeLabel ?? segment.caption ?? ""}${segment.disabled ? " — không khả dụng với lựa chọn hiện tại" : ""}`}</title>
                 <path d={segmentPath(index, count)} fill={segment.disabled ? "#17191e" : theme.fill} stroke="#555555" strokeOpacity={0.55} strokeWidth={0.45} />
                 <g transform={`rotate(${center} ${CENTER} ${CENTER})`}>
                   <text
                     transform={`translate(${CENTER} ${CENTER}) rotate(-90)`}
                     x={RADIUS - 14}
-                    y={-4}
+                    y={count > 12 ? -2.5 : -4}
                     textAnchor="end"
                     dominantBaseline="middle"
                     fill={segment.disabled ? "#626671" : theme.label}
-                    fontSize={count > 12 ? Math.min(6.2, 95 / Math.max(segment.label.length, 1)) : labelFontSize(segment.label)}
+                    fontSize={count > 12 ? 4.7 : labelFontSize(segment.label)}
+                    textLength={count > 12 && segment.name.length > 32 ? 102 : undefined}
+                    lengthAdjust="spacingAndGlyphs"
                     fontWeight={700}
                     letterSpacing={count > 12 ? 0 : .5}
                     style={{ fontFamily: "var(--font-be-vietnam), sans-serif" }}
                   >
-                    {segment.label}
+                    {count > 12 ? segment.name.toUpperCase() : segment.label}
                   </text>
-                  {segment.caption && count <= 12 ? (
+                  {(segment.sizeLabel || segment.caption) ? (
                     <text
                       transform={`translate(${CENTER} ${CENTER}) rotate(-90)`}
                       x={RADIUS - 16}
-                      y={count > 12 ? 3 : 15}
+                      y={count > 12 ? 3.5 : 15}
                       textAnchor="end"
                       dominantBaseline="middle"
                       fill={segment.disabled ? "#626671" : theme.caption}
-                      fontSize={count > 12 ? 3 : 9.5}
+                      fontSize={count > 12 ? 3.5 : 9.5}
                       fontWeight={600}
-                      letterSpacing={2}
+                      letterSpacing={count > 12 ? 0 : 1}
                       style={{ fontFamily: "var(--font-be-vietnam), sans-serif" }}
                     >
-                      {segment.caption}
+                      {count > 12 ? segment.sizeLabel ?? segment.caption : [segment.caption, segment.sizeLabel].filter(Boolean).join(" · ")}
                     </text>
                   ) : null}
                 </g>

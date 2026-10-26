@@ -132,6 +132,7 @@ export type SpinResponse =
 export type ConfirmRewardResponse = { ok: true; result: SpinResultView } | LuckyError;
 
 export type WheelSegmentView = {
+  sizeLabel?: string;
   disabled?: boolean;
   id: string;
   name: string;

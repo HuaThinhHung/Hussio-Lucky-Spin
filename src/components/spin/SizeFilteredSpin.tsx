@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetState
 import SpinExperience from "./SpinExperience";
 import { loadCatalog, readLaunchParams } from "./api";
 import type { EntryPhase } from "./CodeEntryCard";
-import { DEFAULT_TOP_SIZES, FALLBACK_GIFTS, MAX_SIZES, fitsSizes, hasSizes, sizeCounts, sortSizes, toSegments, wheelLabel } from "@/lib/gift-wheel";
+import { DEFAULT_TOP_SIZES, FALLBACK_GIFTS, MAX_SIZES, fitsSizes, hasSizes, sizeCounts, sortSizes, toSegments } from "@/lib/gift-wheel";
 import type { CatalogGift } from "@/lib/lucky-types";
 
 type Catalog = { gifts: CatalogGift[]; open: boolean; live: boolean; contactUrl: string };
@@ -125,8 +125,8 @@ export default function SizeFilteredSpin({ shopUrl }: { shopUrl: string }) {
           {matches.length ? (
             <ul>
               {matches.map((gift) => {
-                const { label, caption } = wheelLabel(gift.name);
-                return <li key={gift.id}><small>{caption}</small>{label}</li>;
+                const segment = segments.find((item) => item.id === gift.id);
+                return <li key={gift.id}>{gift.name}<small>{segment?.sizeLabel}</small></li>;
               })}
             </ul>
           ) : null}
