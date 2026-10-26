@@ -1,5 +1,7 @@
 # Trạng thái Google Sheet
 
+> LƯU TRỮ: nội dung bên dưới thuộc luồng 500 mã cũ. Luồng hiện hành dùng mã đơn website + SĐT/email. Xem WEBSITE_DEPLOYMENT.md, COMPLETION_PLAN.md và SIZE_RECONCILIATION.md. Ngày 26/10/2026: 25 kiểm thử backend giả lập đạt; API thật chưa triển khai; quỹ quà chưa mở.
+
 Đã tạo 500 mã duy nhất trên Sheet. Chưa triển khai Apps Script; chưa kiểm thử trực tiếp luồng cấp/quay/trao quà.
 
 ## Ưu tiên trước khi mở bán

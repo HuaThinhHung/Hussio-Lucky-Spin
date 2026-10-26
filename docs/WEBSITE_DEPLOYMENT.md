@@ -81,7 +81,7 @@ Vòng quay đọc trực tiếp hai bảng này (cache 30 giây): sửa Sheet l�
 Quà đã trúng được trừ dựa trên `WEB_RESULTS`; dòng chuyển sang `HUY` trả quà về quỹ.
 
 Khách tick tối đa 3 size cho từng nhóm. Bốc quà chỉ trong các size đã tick và ghi đúng size thực tế trúng.
-Bản xem trước chưa nối API có thể làm sáng mẫu chưa rõ size để xem bố cục; đây không phải tồn kho thật.
+Bản xem trước chỉ làm sáng mẫu có size khớp sau khi chọn size; mẫu chưa rõ size bị tối. Dữ liệu tham khảo không phải tồn kho phát quà thật.
 Hiệu ứng mobile nhận vuốt và có nét vẽ tự động ngắt quãng; tôn trọng cài đặt giảm chuyển động của thiết bị.
 
 ### Bước 5 — Thời gian & tuỳ chọn (`CAU_HINH`)
